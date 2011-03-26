@@ -16,6 +16,10 @@ class LoggerInfo():
         self.name = name
         self.unread_count = 0
         self.tree_node = tree_node
+        self.messages = []
+
+    def __str__(self):
+        return "LoggerInfo('%s', %s)" % (self.name, self.unread_count)
 
 class LogLinesListCtrlPanel(wx.ListCtrl, listmix.ListCtrlAutoWidthMixin):
     def __init__(self, parent):
@@ -43,18 +47,15 @@ class MyFrame(wx.Frame):
         self.tree = wx.TreeCtrl(self.splitter, wx.ID_ANY, wx.DefaultPosition,
                            wx.DefaultSize, wx.TR_DEFAULT_STYLE)
         self.root = self.tree.AddRoot(os.path.basename(filename))
+        #~ self.tree.Bind(wx.EVT_LEFT_DCLICK, self.TreeOnLeftDClick)
+        self.Bind(wx.EVT_TREE_SEL_CHANGED, self.TreeOnSelChanged, self.tree)
 
         self.list_view = LogLinesListCtrlPanel(self.splitter)
         self.list_view.InsertColumn(0, "level")
-        self.list_view.InsertColumn(0, "logger_name")
-        self.list_view.InsertColumn(1, "thread_id", wx.LIST_FORMAT_RIGHT)
-        self.list_view.InsertColumn(2, "message")
-        self.list_view.SetStringItem(0, 1, "Hello World")
-
-        #~ sizer = wx.BoxSizer(wx.VERTICAL)
-        #~ sizer.Add(self.tree, 1, wx.EXPAND)
-        #~ self.SetSizer(sizer)
-        #~ self.SetAutoLayout(True)
+        self.list_view.InsertColumn(1, "logger_name")
+        self.list_view.InsertColumn(2, "thread_id", wx.LIST_FORMAT_RIGHT)
+        self.list_view.InsertColumn(3, "message")
+        #~ self.list_view.Append(('level', 'logger_name', 'thread_id', 'message'))
 
         self.splitter.SetMinimumPaneSize(20)
         self.splitter.SplitVertically(self.tree, self.list_view, 240)
@@ -70,14 +71,27 @@ class MyFrame(wx.Frame):
         w,h = self.GetClientSizeTuple()
         self.splitter.SetDimensions(0, 0, w, h)
 
-    def OnSashChanging(self, evt):
-        log.debug("sash changing to %s\n" % str(evt.GetSashPosition()))
+    def OnSashChanging(self, event):
+        log.debug("sash changing to %s\n" % str(event.GetSashPosition()))
 
-    def OnUpdate(self, evt):
-        #~ log.debug("got line: %s" % evt.line)
-        match = re.match("(\\w)/([-\\w\\./]+) *\\( *(\\d+)\\): (.*)", evt.line)
+    def TreeOnSelChanged(self, event):
+        log.debug("TreeOnLeftDClick()")
+        item_id = event.GetItem()
+        if item_id:
+            loginfo = self.tree.GetPyData(item_id)
+            log.debug("OnSelChanged: %s\n" % loginfo)
+
+            self.list_view.DeleteAllItems()
+            for row in loginfo.messages:
+                self.list_view.Append(row)
+
+        event.Skip()
+
+    def OnUpdate(self, event):
+        #~ log.debug("got line: %s" % event.line)
+        match = re.match("(\\w)/([-\\w\\./]+) *\\( *(\\d+)\\): (.*)", event.line.strip())
         if not match:
-            log.error("failed match '%s'" % evt.line)
+            log.error("failed match '%s'" % event.line)
             return
 
         level, logger_name, thread_id, message = match.groups()
@@ -85,7 +99,9 @@ class MyFrame(wx.Frame):
         if not logger_name in self.logger_infos:
             #~ log.debug("New logger_name: %s" % logger_name)
             child = self.tree.AppendItem(self.root, logger_name)
-            self.logger_infos[logger_name] = LoggerInfo(logger_name, child)
+            loginfo = LoggerInfo(logger_name, child)
+            self.tree.SetPyData(child, loginfo)
+            self.logger_infos[logger_name] = loginfo
             if len(self.logger_infos) == 1:
                 self.tree.Expand(self.root)
 
@@ -94,6 +110,7 @@ class MyFrame(wx.Frame):
         #~ log.debug("%s.unread_count: %s" % (logger_name, loginfo.unread_count))
         self.tree.SetItemText(loginfo.tree_node,
             "%s (%s)" % (logger_name, loginfo.unread_count))
+        loginfo.messages.append((level, logger_name, thread_id, message))
 
 def main():
     app = wx.App()
