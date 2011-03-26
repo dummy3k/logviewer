@@ -1,0 +1,24 @@
+<!--
+Sat Mar 26 13:46:14| OUT: Tor,hits: 2,DST: 85.8.28.4
+Sat Mar 26 13:46:14| OUT: Tor,hits: 2,DST: 94.247.40.147
+Sat Mar 26 13:47:10| OUT: Tor,hits: 1,DST: 199.48.147.4
+Sat Mar 26 13:47:10| OUT: Tor,hits: 1,DST: 87.79.76.98
+Sat Mar 26 13:47:10| OUT: Villa Straylight,hits: 1,DST: 192.251.226.206
+Sat Mar 26 15:36:58| OUT: Villa Straylight,hits: 2,DST: 192.251.226.205
+Sat Mar 26 15:36:58| OUT: Tor,hits: 1,DST: 178.63.66.76
+Sat Mar 26 17:50:09| OUT: Tor,hits: 1,DST: 213.103.195.84
+Sat Mar 26 17:52:11| OUT: Tor,hits: 1,DST: 199.48.147.35
+Sat Mar 26 17:57:16| OUT: Tor,hits: 3,DST: 146.57.249.104
+-->
+
+<readFile filename='/var/log/moblock.log'>
+    <lineFilter regex="^(.{19})\| *(\w+): *(.*),hits: *(\d+),DST: (.*)" groupBy='2'>
+        <parameter name='timestamp' regex_index='0' />
+        <parameter name='direction' regex_index='1' />
+        <parameter name='hits' regex_index='2' />
+        <parameter name='dst' regex_index='3' />
+    </lineFilter>
+    <ignore>
+        <lineFilter regex="^Skipping.*" />
+    </ignore>
+</readFile>

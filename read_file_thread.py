@@ -20,7 +20,8 @@ class FileReader():
         self.max_lines = max_lines
 
     def Start(self):
-        thread.start_new_thread(self.Run, ())
+        self.thread_id = thread.start_new_thread(self.Run, ())
+        log.debug("thread %x started" % self.thread_id)
 
     def Stop(self):
         self.keepGoing = False
@@ -57,7 +58,7 @@ class FileReader():
 if __name__ == '__main__':
     log.debug("Start")
     t = FileReader('/tmp/logcat.log', max_lines = 3)
-    #~ t.Start()
-    t.Run()
+    t.Start()
+    #~ t.Run()
     time.sleep(5)
     log.debug("Exit")
