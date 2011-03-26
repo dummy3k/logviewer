@@ -10,6 +10,7 @@ if __name__ == '__main__':
     logging.config.fileConfig("logging.conf")
 
 log = logging.getLogger(__name__)
+MAX_LIST_ITEMS = 100
 
 class LoggerInfo():
     def __init__(self, name, tree_node):
@@ -82,8 +83,15 @@ class MyFrame(wx.Frame):
             log.debug("OnSelChanged: %s\n" % loginfo)
 
             self.list_view.DeleteAllItems()
-            for row in loginfo.messages:
-                self.list_view.Append(row)
+            for row in loginfo.messages[-MAX_LIST_ITEMS:]:
+                try:
+                    self.list_view.Append(row)
+                except UnicodeDecodeError:
+                    log.error("UnicodeDecodeError in TreeOnSelChanged()")
+
+            loginfo.unread_count = 0
+            #~ log.debug("%s.unread_count: %s" % (logger_name, loginfo.unread_count))
+            self.tree.SetItemText(loginfo.tree_node, loginfo.name)
 
         event.Skip()
 
