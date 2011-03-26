@@ -12,6 +12,18 @@ if __name__ == '__main__':
 log = logging.getLogger(__name__)
 MAX_LIST_ITEMS = 100
 
+class ReadFileProject():
+    def __init__(self, *args, **kwargs):
+        if 'log_file_name' in kwargs:
+            pass
+        elif 'log_file_name' in kwargs:
+            pass
+        else:
+            raise TypeError('bad arguments')
+
+    def save_to_file(self, filename):
+        pass
+
 class LoggerInfo():
     def __init__(self, name, tree_node, tree_control):
         self.name = name
@@ -23,8 +35,7 @@ class LoggerInfo():
     def __str__(self):
         return "LoggerInfo('%s', %s)" % (self.name, self.unread_count)
 
-    def Append(self, m):
-        self.messages.append(m)
+    def MarkAsUnRead(self):
         self.unread_count += 1
         self.tree.SetItemText(self.tree_node,
             "%s (%s)" % (self.name, self.unread_count))
@@ -52,9 +63,9 @@ class MyFrame(wx.Frame):
         self.splitter = wx.SplitterWindow(self)
 
         menuBar = wx.MenuBar()
-        menu1 = wx.Menu()
-        menu1.Append(101, "&Mark all as read")
-        menuBar.Append(menu1, "&Messages")
+        menuItem = wx.Menu()
+        menuItem.Append(wx.ID_ANY, "&Mark all as read")
+        menuBar.Append(menuItem, "&Messages")
         self.Bind(wx.EVT_MENU, self.MenuMarkAllAsRead)
         self.SetMenuBar(menuBar)
 
@@ -94,13 +105,15 @@ class MyFrame(wx.Frame):
             log.debug("OnSelChanged: %s\n" % loginfo)
 
             self.list_view.DeleteAllItems()
+            last_item_idx = 0
             for row in loginfo.messages[-MAX_LIST_ITEMS:]:
                 try:
-                    self.list_view.Append(row)
+                    last_item_idx = self.list_view.Append(row)
                 except UnicodeDecodeError:
                     log.error("UnicodeDecodeError in TreeOnSelChanged()")
 
             loginfo.MarkAsRead()
+            self.list_view.EnsureVisible(last_item_idx)
 
         event.Skip()
 
@@ -123,7 +136,18 @@ class MyFrame(wx.Frame):
                 self.tree.Expand(self.root)
 
         loginfo = self.logger_infos[logger_name]
-        loginfo.Append((level, logger_name, thread_id, message))
+        loginfo.messages.append((level, logger_name, thread_id, message))
+
+        focused_loginfo = self.tree.GetPyData(self.tree.GetSelection())
+        if focused_loginfo and focused_loginfo.name == logger_name:
+            log.debug("Focused!")
+            try:
+                pos = self.list_view.Append((level, logger_name, thread_id, message))
+                self.list_view.EnsureVisible(pos)
+            except UnicodeDecodeError:
+                log.error("UnicodeDecodeError in TreeOnSelChanged()")
+        else:
+            loginfo.MarkAsUnRead()
 
 def main():
     app = wx.App()
