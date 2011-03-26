@@ -1,6 +1,7 @@
-import wx
 import logging
 import re, os
+import wx
+import wx.lib.mixins.listctrl  as  listmix
 
 from read_file_thread import FileReader, EVT_LINE_READ
 
@@ -16,6 +17,11 @@ class LoggerInfo():
         self.unread_count = 0
         self.tree_node = tree_node
 
+class LogLinesListCtrlPanel(wx.ListCtrl, listmix.ListCtrlAutoWidthMixin):
+    def __init__(self, parent):
+        wx.ListCtrl.__init__(self, parent, -1, style=wx.WANTS_CHARS | wx.LC_REPORT)
+        listmix.ListCtrlAutoWidthMixin.__init__(self)
+
 class MyFrame(wx.Frame):
     def __init__(
             self, parent, ID=wx.ID_ANY, title="Map the Internet",
@@ -25,7 +31,7 @@ class MyFrame(wx.Frame):
 
         wx.Frame.__init__(self, parent, ID, title, pos, size, style)
         self.logger_infos = {}
-        self.Bind(wx.EVT_SIZE, self.OnSize)
+        self.splitter = wx.SplitterWindow(self)
 
         menuBar = wx.MenuBar()
         menu1 = wx.Menu()
@@ -34,10 +40,27 @@ class MyFrame(wx.Frame):
         self.SetMenuBar(menuBar)
 
         filename = '/tmp/logcat.log'
-        self.tree = wx.TreeCtrl(self, wx.ID_ANY, wx.DefaultPosition,
+        self.tree = wx.TreeCtrl(self.splitter, wx.ID_ANY, wx.DefaultPosition,
                            wx.DefaultSize, wx.TR_DEFAULT_STYLE)
         self.root = self.tree.AddRoot(os.path.basename(filename))
 
+        self.list_view = LogLinesListCtrlPanel(self.splitter)
+        self.list_view.InsertColumn(0, "level")
+        self.list_view.InsertColumn(0, "logger_name")
+        self.list_view.InsertColumn(1, "thread_id", wx.LIST_FORMAT_RIGHT)
+        self.list_view.InsertColumn(2, "message")
+        self.list_view.SetStringItem(0, 1, "Hello World")
+
+        #~ sizer = wx.BoxSizer(wx.VERTICAL)
+        #~ sizer.Add(self.tree, 1, wx.EXPAND)
+        #~ self.SetSizer(sizer)
+        #~ self.SetAutoLayout(True)
+
+        self.splitter.SetMinimumPaneSize(20)
+        self.splitter.SplitVertically(self.tree, self.list_view, 240)
+        self.Bind(wx.EVT_SIZE, self.OnSize)
+        self.Bind(wx.EVT_SPLITTER_SASH_POS_CHANGED, self.OnSashChanging)
+        self.Bind(wx.EVT_SPLITTER_SASH_POS_CHANGING, self.OnSashChanging)
 
         self.reader = FileReader(filename, self)
         self.Bind(EVT_LINE_READ, self.OnUpdate)
@@ -45,7 +68,10 @@ class MyFrame(wx.Frame):
 
     def OnSize(self, event):
         w,h = self.GetClientSizeTuple()
-        self.tree.SetDimensions(0, 0, w, h)
+        self.splitter.SetDimensions(0, 0, w, h)
+
+    def OnSashChanging(self, evt):
+        log.debug("sash changing to %s\n" % str(evt.GetSashPosition()))
 
     def OnUpdate(self, evt):
         #~ log.debug("got line: %s" % evt.line)
@@ -57,7 +83,7 @@ class MyFrame(wx.Frame):
         level, logger_name, thread_id, message = match.groups()
         #~ log.debug(match.groups())
         if not logger_name in self.logger_infos:
-            log.debug("New logger_name: %s" % logger_name)
+            #~ log.debug("New logger_name: %s" % logger_name)
             child = self.tree.AppendItem(self.root, logger_name)
             self.logger_infos[logger_name] = LoggerInfo(logger_name, child)
             if len(self.logger_infos) == 1:
@@ -65,13 +91,13 @@ class MyFrame(wx.Frame):
 
         loginfo = self.logger_infos[logger_name]
         loginfo.unread_count += 1
-        log.debug("%s.unread_count: %s" % (logger_name, loginfo.unread_count))
+        #~ log.debug("%s.unread_count: %s" % (logger_name, loginfo.unread_count))
         self.tree.SetItemText(loginfo.tree_node,
             "%s (%s)" % (logger_name, loginfo.unread_count))
 
 def main():
     app = wx.App()
-    win = MyFrame(None, pos=(0,0), size=(300, 800))
+    win = MyFrame(None, pos=(0,0), size=(1024, 800))
     win.Show()
 
     log.info("entering main loop")
