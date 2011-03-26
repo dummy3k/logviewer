@@ -1,6 +1,6 @@
 import wx
 import logging
-import re
+import re, os
 
 from read_file_thread import FileReader, EVT_LINE_READ
 
@@ -11,9 +11,10 @@ if __name__ == '__main__':
 log = logging.getLogger(__name__)
 
 class LoggerInfo():
-    def __init__(self, name):
+    def __init__(self, name, tree_node):
         self.name = name
         self.unread_count = 0
+        self.tree_node = tree_node
 
 class MyFrame(wx.Frame):
     def __init__(
@@ -24,7 +25,6 @@ class MyFrame(wx.Frame):
 
         wx.Frame.__init__(self, parent, ID, title, pos, size, style)
         self.logger_infos = {}
-        #~ panel = wx.Panel(self, -1)
         self.Bind(wx.EVT_SIZE, self.OnSize)
 
         menuBar = wx.MenuBar()
@@ -33,10 +33,13 @@ class MyFrame(wx.Frame):
         menuBar.Append(menu1, "&Planets")
         self.SetMenuBar(menuBar)
 
+        filename = '/tmp/logcat.log'
         self.tree = wx.TreeCtrl(self, wx.ID_ANY, wx.DefaultPosition,
                            wx.DefaultSize, wx.TR_DEFAULT_STYLE)
+        self.root = self.tree.AddRoot(os.path.basename(filename))
 
-        self.reader = FileReader('/tmp/logcat.log', self)
+
+        self.reader = FileReader(filename, self)
         self.Bind(EVT_LINE_READ, self.OnUpdate)
         self.reader.Start()
 
@@ -55,15 +58,20 @@ class MyFrame(wx.Frame):
         #~ log.debug(match.groups())
         if not logger_name in self.logger_infos:
             log.debug("New logger_name: %s" % logger_name)
-            self.logger_infos[logger_name] = LoggerInfo(logger_name)
+            child = self.tree.AppendItem(self.root, logger_name)
+            self.logger_infos[logger_name] = LoggerInfo(logger_name, child)
+            if len(self.logger_infos) == 1:
+                self.tree.Expand(self.root)
 
-        self.logger_infos[logger_name].unread_count += 1
-        log.debug("%s.unread_count: %s" % (logger_name,
-            self.logger_infos[logger_name].unread_count))
+        loginfo = self.logger_infos[logger_name]
+        loginfo.unread_count += 1
+        log.debug("%s.unread_count: %s" % (logger_name, loginfo.unread_count))
+        self.tree.SetItemText(loginfo.tree_node,
+            "%s (%s)" % (logger_name, loginfo.unread_count))
 
 def main():
     app = wx.App()
-    win = MyFrame(None, pos=(0,0))
+    win = MyFrame(None, pos=(0,0), size=(300, 800))
     win.Show()
 
     log.info("entering main loop")
