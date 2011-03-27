@@ -31,7 +31,7 @@ class ProjectTreeItemData(TreeItemData):
         self.list_view.SetColumns(self.project.parameters)
         for item in self.project.get_last(MyFrame.MAX_LIST_ITEMS):
             item_id = self.list_view.Append(item[1:])
-            log.debug(item_id)
+            #~ log.debug(item_id)
 
         self.list_view.FitAndMoveLast()
 
