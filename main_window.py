@@ -77,6 +77,8 @@ class LogLinesListCtrlPanel(wx.ListCtrl, listmix.ListCtrlAutoWidthMixin):
         listmix.ListCtrlAutoWidthMixin.__init__(self)
 
 class MyFrame(wx.Frame):
+    WINDOW_XML_FILENAME = 'var/window.xml'
+
     def __init__(
             self, parent, ID=wx.ID_ANY, title="Map the Internet",
             pos=wx.DefaultPosition,
@@ -115,6 +117,7 @@ class MyFrame(wx.Frame):
         self.splitter.SetMinimumPaneSize(20)
         self.splitter.SplitVertically(self.tree, self.list_view, 240)
         self.Bind(wx.EVT_SIZE, self.OnSize)
+        self.Bind(wx.EVT_CLOSE, self.OnFormClose)
 
         self.tree.Bind(EVT_LINE_READ, self.OnUpdate)
         self.projects = {}
@@ -124,6 +127,17 @@ class MyFrame(wx.Frame):
         self.LoadProject('moblock.logproj')
         #~ self.tree.Expand(root)
 
+        if os.path.exists(MyFrame.WINDOW_XML_FILENAME):
+            doc = libxml2.parseFile(MyFrame.WINDOW_XML_FILENAME)
+            root = doc.firstElementChild()
+            left = root.prop('left')
+            top = root.prop('top')
+            self.SetPosition((int(left), int(top)))
+
+            width = root.prop('width')
+            height = root.prop('height')
+            self.SetSize((int(width), int(height)))
+
     def OnSize(self, event):
         w,h = self.GetClientSizeTuple()
         self.splitter.SetDimensions(0, 0, w, h)
@@ -132,6 +146,24 @@ class MyFrame(wx.Frame):
         for project in self.projects.values():
             for loginfo in project.logger_infos.values():
                 loginfo.MarkAsRead()
+
+    def OnFormClose(self, event):
+        log.debug("OnFormClose(CanVeto: %s)" % event.CanVeto())
+        doc = libxml2.newDoc('1.0')
+        root = doc.newChild(None, 'window', None)
+
+        left, top = self.GetPosition()
+        root.setProp('top', str(top))
+        root.setProp('left', str(left))
+
+        width, height = self.GetSize()
+        root.setProp('width', str(width))
+        root.setProp('height', str(height))
+
+        log.debug("XML: %s" % doc.serialize())
+        doc.saveFile(MyFrame.WINDOW_XML_FILENAME)
+
+        event.Skip()
 
     def MenuNewProject(self, event):
         pass
@@ -155,6 +187,7 @@ class MyFrame(wx.Frame):
                 self.list_view.DeleteAllItems()
 
                 self.list_view.DeleteAllColumns()
+                log.debug("loginfo.parameters: %s" % loginfo.parameters)
                 for index, name in enumerate(loginfo.parameters):
                     self.list_view.InsertColumn(index, name)
 
@@ -162,7 +195,7 @@ class MyFrame(wx.Frame):
                 for row in loginfo.messages[-MAX_LIST_ITEMS:]:
                     try:
                         log.debug(row)
-                        last_item_idx = self.list_view.Append(row[:4])
+                        last_item_idx = self.list_view.Append(row)
                         pass
                     except UnicodeDecodeError:
                         log.error("UnicodeDecodeError in TreeOnSelChanged()")
