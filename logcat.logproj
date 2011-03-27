@@ -4,13 +4,15 @@
         <parameter name='logger_name' regex_index='1' />
         <parameter name='thread_id' regex_index='2' />
         <parameter name='message' regex_index='3' />
-        <sub>
-            <parameter name='level' regex_index='0' />
-            <parameter name='logger_name' regex_index='1' />
-            <parameter name='thread_id' regex_index='2' />
-            <parameter name='message' regex_index='3' />
-        </sub>
     </lineFilter>
+
+    <logLevels>
+        <logLevel id='V' />
+        <logLevel id='D' />
+        <logLevel id='I' />
+        <logLevel id='W' />
+        <logLevel id='E' />
+    </logLevels>
 
     <loginfo name='dalvikvm' loglevel='w'></loginfo>
     <loginfo name='wifi' loglevel='w'></loginfo>
