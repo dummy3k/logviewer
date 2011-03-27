@@ -11,7 +11,6 @@ if __name__ == '__main__':
     logging.config.fileConfig("logging.conf")
 
 log = logging.getLogger(__name__)
-MAX_LIST_ITEMS = 100
 
 class ReadFileProject():
     def __init__(self, *args, **kwargs):
@@ -78,6 +77,7 @@ class LogLinesListCtrlPanel(wx.ListCtrl, listmix.ListCtrlAutoWidthMixin):
 
 class MyFrame(wx.Frame):
     WINDOW_XML_FILENAME = 'var/window.xml'
+    MAX_LIST_ITEMS = 100
 
     def __init__(
             self, parent, ID=wx.ID_ANY, title="Map the Internet",
@@ -102,17 +102,11 @@ class MyFrame(wx.Frame):
 
         self.SetMenuBar(menuBar)
 
-        #~ filename = '/tmp/logcat.log'
         self.tree = wx.TreeCtrl(self.splitter, wx.ID_ANY, wx.DefaultPosition,
                            wx.DefaultSize, wx.TR_DEFAULT_STYLE)
         self.Bind(wx.EVT_TREE_SEL_CHANGED, self.TreeOnSelChanged, self.tree)
 
         self.list_view = LogLinesListCtrlPanel(self.splitter)
-        #~ self.list_view.DeleteAllColumns()
-        #~ self.list_view.InsertColumn(0, "level")
-        #~ self.list_view.InsertColumn(1, "logger_name")
-        #~ self.list_view.InsertColumn(2, "thread_id", wx.LIST_FORMAT_RIGHT)
-        #~ self.list_view.InsertColumn(3, "message")
 
         self.splitter.SetMinimumPaneSize(20)
         self.splitter.SplitVertically(self.tree, self.list_view, 240)
@@ -125,7 +119,6 @@ class MyFrame(wx.Frame):
 
         self.LoadProject('logcat.logproj')
         self.LoadProject('moblock.logproj')
-        #~ self.tree.Expand(root)
 
         if os.path.exists(MyFrame.WINDOW_XML_FILENAME):
             doc = libxml2.parseFile(MyFrame.WINDOW_XML_FILENAME)
@@ -192,7 +185,7 @@ class MyFrame(wx.Frame):
                     self.list_view.InsertColumn(index, name)
 
                 last_item_idx = 0
-                for row in loginfo.messages[-MAX_LIST_ITEMS:]:
+                for row in loginfo.messages[-MyFrame.MAX_LIST_ITEMS:]:
                     try:
                         log.debug(row)
                         last_item_idx = self.list_view.Append(row)
@@ -209,8 +202,6 @@ class MyFrame(wx.Frame):
 
     def OnUpdate(self, event):
         #~ log.debug("got line: %s" % event.line)
-        #~ match = re.match("(\\w)/([-\\w\\./]+) *\\( *(\\d+)\\): (.*)", event.line.strip())
-        #~ project = self.projects.values()[0]
         for project in self.projects.values():
             match = project.line_filter.match(event.line.strip())
             if match:
