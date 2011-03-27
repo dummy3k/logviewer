@@ -1,4 +1,4 @@
-<readFile filename='/tmp/logcat.log'>
+<readFile filename='/tmp/logcat.log' sqliteUrl='sqlite:///var/logcat.db'>
     <lineFilter regex="(\w)/([-\w\./]+) *\( *(\d+)\): (.*)" groupBy='1'>
         <parameter name='level' regex_index='0' />
         <parameter name='logger_name' regex_index='1' />

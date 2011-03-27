@@ -11,7 +11,8 @@ Sat Mar 26 17:52:11| OUT: Tor,hits: 1,DST: 199.48.147.35
 Sat Mar 26 17:57:16| OUT: Tor,hits: 3,DST: 146.57.249.104
 -->
 
-<readFile filename='/var/log/moblock.log'>
+<!-- /var/log/moblock.log -->
+<readFile filename='var/moblock-input.log' sqliteUrl='sqlite:///var/moblock.db'>
     <lineFilter regex="^(.{19})\| *(\w+): *(.*),hits: *(\d+),DST: (.*)" groupBy='2'>
         <parameter name='timestamp' regex_index='0' />
         <parameter name='direction' regex_index='1' />

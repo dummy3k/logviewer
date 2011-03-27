@@ -57,7 +57,8 @@ class FileReader():
 
 if __name__ == '__main__':
     log.debug("Start")
-    t = FileReader('/tmp/logcat.log', max_lines = 3)
+    #~ t = FileReader('/tmp/logcat.log', max_lines = 3)
+    t = FileReader('var/moblock-input.log', max_lines = 3)
     t.Start()
     #~ t.Run()
     time.sleep(5)

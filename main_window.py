@@ -13,6 +13,37 @@ if __name__ == '__main__':
 
 log = logging.getLogger(__name__)
 
+class TreeItemData():
+    def __init__(self, list_view):
+        self.list_view = list_view
+
+    def OnSelChanged(self, event):
+        log.debug("TreeItemData.OnSelChanged()")
+        self.list_view.SetColumns([])
+
+class ProjectTreeItemData(TreeItemData):
+    def __init__(self, project, list_view):
+        TreeItemData.__init__(self, list_view)
+        self.project = project
+
+    def OnSelChanged(self, event):
+        log.debug("ProjectTreeItemData.OnSelChanged()")
+        self.list_view.SetColumns(self.project.parameters)
+        for item in self.project.get_last(MyFrame.MAX_LIST_ITEMS):
+            item_id = self.list_view.Append(item[1:])
+            log.debug(item_id)
+
+        self.list_view.FitAndMoveLast()
+
+class LoggerInfoItemData(TreeItemData):
+    def __init__(self, logger_info, list_view):
+        TreeItemData.__init__(self, list_view)
+        self.logger_info = logger_info
+
+    #~ def OnSelChanged(self, event):
+        #~ log.debug("LoggerInfoItemData.OnSelChanged()")
+
+
 class LoggerInfo():
     def __init__(self, name, tree_node, tree_control, parameters):
         self.name = name
@@ -40,6 +71,18 @@ class LogLinesListCtrlPanel(wx.ListCtrl, listmix.ListCtrlAutoWidthMixin):
     def __init__(self, parent):
         wx.ListCtrl.__init__(self, parent, -1, style=wx.WANTS_CHARS | wx.LC_REPORT)
         listmix.ListCtrlAutoWidthMixin.__init__(self)
+
+    def SetColumns(self, col_names):
+        #~ log.debug("LogLinesListCtrlPanel.SetColumns")
+        self.DeleteAllItems()
+        self.DeleteAllColumns()
+        for index, name in enumerate(col_names):
+            self.InsertColumn(index, name)
+
+    def FitAndMoveLast(self):
+        for index in range(self.GetColumnCount()):
+            self.SetColumnWidth(index, wx.LIST_AUTOSIZE)
+        self.EnsureVisible(self.GetItemCount() - 1)
 
 class MyFrame(wx.Frame):
     WINDOW_XML_FILENAME = 'var/window.xml'
@@ -134,8 +177,22 @@ class MyFrame(wx.Frame):
         if self.tree.GetChildrenCount(self.tree.GetRootItem()) == 1:
             self.tree.Expand(self.tree.GetRootItem())
 
+        self.tree.SetPyData(project.root, ProjectTreeItemData(project, self.list_view))
 
     def TreeOnSelChanged(self, event):
+        item_id = event.GetItem()
+        if not item_id:
+            return
+
+        item_data = self.tree.GetPyData(item_id)
+        if not item_data:
+            log.warn("Tree node without item data")
+            return
+
+        log.debug("TreeOnSelChanged(%s)" % item_data)
+        item_data.OnSelChanged(event)
+
+    def TreeOnSelChanged_old(self, event):
         log.debug("TreeOnLeftDClick()")
         item_id = event.GetItem()
         if item_id:
@@ -172,13 +229,16 @@ class MyFrame(wx.Frame):
             match = project.line_filter.match(event.line.strip())
             if match:
                 param_values = match.groups()
+                project.append(param_values)
+
                 #~ log.debug(match.groups())
                 logger_name = param_values[project.group_by]
                 if not logger_name in project.logger_infos:
                     #~ log.debug("New logger_name: %s" % logger_name)
                     child = self.tree.AppendItem(project.root, logger_name)
                     loginfo = LoggerInfo(logger_name, child, self.tree, project.parameters)
-                    self.tree.SetPyData(child, loginfo)
+                    #~ self.tree.SetPyData(child, loginfo)
+                    self.tree.SetPyData(child, LoggerInfoItemData(loginfo, self.list_view))
                     project.logger_infos[logger_name] = loginfo
                     if self.tree.GetChildrenCount(project.root) == 1:
                         self.tree.Expand(project.root)
@@ -186,20 +246,20 @@ class MyFrame(wx.Frame):
                 loginfo = project.logger_infos[logger_name]
                 loginfo.messages.append(param_values)
 
-                focused_loginfo = self.tree.GetPyData(self.tree.GetSelection())
-                if focused_loginfo and focused_loginfo.name == logger_name:
-                    log.debug("Focused!")
-                    try:
-                        pos = self.list_view.Append(param_values)
-                        self.list_view.EnsureVisible(pos)
-                    except UnicodeDecodeError:
-                        log.error("UnicodeDecodeError in TreeOnSelChanged()")
-                else:
-                    loginfo.MarkAsUnRead()
+                #~ focused_loginfo = self.tree.GetPyData(self.tree.GetSelection())
+                #~ if focused_loginfo and focused_loginfo.name == logger_name:
+                    #~ log.debug("Focused!")
+                    #~ try:
+                        #~ pos = self.list_view.Append(param_values)
+                        #~ self.list_view.EnsureVisible(pos)
+                    #~ except UnicodeDecodeError:
+                        #~ log.error("UnicodeDecodeError in TreeOnSelChanged()")
+                #~ else:
+                    #~ loginfo.MarkAsUnRead()
 
                 return
 
-        #~ log.error("failed match '%s'" % event.line)
+        log.error("failed match '%s'" % event.line)
 
 def main():
     app = wx.App()
