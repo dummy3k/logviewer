@@ -210,6 +210,27 @@ class EqualExpression():
     def __repr__(self):
         return "EqualExpression(%s, '%s')" % (self.var_name, self.var_value)
 
+    def eval_values(self, values):
+        """
+            >>> expr = EqualExpression('foo', 'bar')
+            >>> expr.eval_values({'foo':'bar'})
+            True
+
+            >>> expr.eval_values({'foo':'xyz'})
+            False
+
+            >>> expr.eval_values({'xyz':'bar'})
+            Traceback (most recent call last):
+            Exception: Variable not defiend: 'foo'
+
+            >>> expr.eval_values({'abc':'xyz', 'foo':'bar'})
+            True
+        """
+        try:
+            return values[self.var_name] == self.var_value
+        except KeyError:
+            raise Exception("Variable not defiend: '%s'" % self.var_name)
+
 class AndExpression():
     def __init__(self, condition1, condition2):
         self.condition1 = condition1
@@ -218,6 +239,24 @@ class AndExpression():
     def __repr__(self):
         return "AndExpression(%s, '%s')" % (self.condition1, self.condition2)
 
+    def eval_values(self, values):
+        """
+            >>> equal_expr_1 = EqualExpression('foo', 'bar')
+            >>> equal_expr_2 = EqualExpression('xyz', 'abc')
+            >>> expr = AndExpression(equal_expr_1, equal_expr_2)
+            >>> expr.eval_values({'foo':'bar', 'xyz':'abc'})
+            True
+
+            >>> expr.eval_values({'foo':'baz', 'xyz':'abc'})
+            False
+
+            >>> expr.eval_values({'foo':'bar', 'xyz':'abcd'})
+            False
+        """
+        if not self.condition1.eval_values(values):
+            return False
+        return self.condition2.eval_values(values)
+
 class InExpression():
     def __init__(self, var_name, var_values):
         self.var_name = var_name
@@ -225,6 +264,21 @@ class InExpression():
 
     def __repr__(self):
         return "InExpression(%s, %s)" % (self.var_name, self.var_values)
+
+    def eval_values(self, values):
+        """
+            >>> expr = InExpression('foo', ('foo', 'bar', 'baz'))
+            >>> expr.eval_values({'foo':'bar'})
+            True
+            >>> expr.eval_values({'foo':'baz'})
+            True
+            >>> expr.eval_values({'foo':'xyz'})
+            False
+        """
+        for item in self.var_values:
+            if values[self.var_name] == item:
+                return True
+        return False
 
 IDX_CHILDREN = 3
 from simpleparse.dispatchprocessor import DispatchProcessor, getString, dispatchList
