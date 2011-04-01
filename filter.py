@@ -186,10 +186,14 @@ class ProcessessExpression(DispatchProcessor):
 
     def equal(self, tags, buffer):
         """
-            >>> input = "foo = 'bar'"
             >>> proc = ProcessessExpression()
+            >>> input = "foo = 'bar'"
             >>> proc(parse('equal', input), input)
             EqualExpression(foo, 'bar')
+
+            >>> input = "logger_name = 'dalvikvm'"
+            >>> proc(parse('equal', input), input)
+            EqualExpression(logger_name, 'dalvikvm')
         """
         #~ pprint(tags)
         var_name = self(tags[IDX_CHILDREN][0], buffer)
@@ -224,11 +228,16 @@ class ProcessessExpression(DispatchProcessor):
 
     def word(self, tags, buffer):
         """
-            >>> input = "foo"
             >>> proc = ProcessessExpression()
+            >>> input = "foo"
             >>> proc(parse('word', input), input)
             'foo'
+
+            >>> input = "logger_name"
+            >>> proc(parse('word', input), input)
+            'logger_name'
         """
+        return buffer[int(tags[1]):int(tags[2])]
         return self(tags[IDX_CHILDREN][0], buffer)
 
     def alphanums(self, tags, buffer):
@@ -243,6 +252,14 @@ class ProcessessExpression(DispatchProcessor):
     def whitespace(self, tags, buffer):
         return getString(tags, buffer)
 
+    def expression(self, tags, buffer):
+        """
+            >>> input = "foo = 'bar' and foo2 = 'bar2'"
+            >>> proc = ProcessessExpression()
+            >>> proc(parse('expression', input), input)
+            AndExpression(EqualExpression(foo, 'bar'), 'EqualExpression(foo2, 'bar2')')
+        """
+        return self(tags[IDX_CHILDREN][0], buffer)
 
 if __name__ == '__main__':
     import doctest

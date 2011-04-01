@@ -6,6 +6,13 @@
         <parameter name='message' regex_index='3' />
     </lineFilter>
 
+    <filter name='dalvikvm'>
+        logger_name = 'dalvikvm'
+    </filter>
+    <filter name='wifi'>
+        logger_name in ('WifiMonitor', 'WifiStateTracker', 'wpa_supplicant')
+    </filter>
+
     <logLevels>
         <logLevel id='V' />
         <logLevel id='D' />

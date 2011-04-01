@@ -127,7 +127,7 @@ class MyFrame(wx.Frame):
         root = self.tree.AddRoot("LogViewer")
 
         self.LoadProject('logcat.logproj')
-        self.LoadProject('moblock.logproj')
+        #~ self.LoadProject('moblock.logproj')
 
         if os.path.exists(MyFrame.WINDOW_XML_FILENAME):
             doc = libxml2.parseFile(MyFrame.WINDOW_XML_FILENAME)
@@ -225,37 +225,42 @@ class MyFrame(wx.Frame):
 
     def OnUpdate(self, event):
         #~ log.debug("got line: %s" % event.line)
+
         for project in self.projects.values():
             match = project.line_filter.match(event.line.strip())
             if match:
                 param_values = match.groups()
                 project.append(param_values)
 
-                #~ log.debug(match.groups())
-                logger_name = param_values[project.group_by]
-                if not logger_name in project.logger_infos:
-                    #~ log.debug("New logger_name: %s" % logger_name)
-                    child = self.tree.AppendItem(project.root, logger_name)
-                    loginfo = LoggerInfo(logger_name, child, self.tree, project.parameters)
-                    #~ self.tree.SetPyData(child, loginfo)
-                    self.tree.SetPyData(child, LoggerInfoItemData(loginfo, self.list_view))
-                    project.logger_infos[logger_name] = loginfo
-                    if self.tree.GetChildrenCount(project.root) == 1:
-                        self.tree.Expand(project.root)
+                for filter_item in project.filters:
+                    if filter_item.filter_expression.eval_values(project.to_dict(param_values)):
+                        log.debug("[%s] filtered line: %s" % (filter_item.name, event.line))
 
-                loginfo = project.logger_infos[logger_name]
-                loginfo.messages.append(param_values)
+                ##~ log.debug(match.groups())
+                #logger_name = param_values[project.group_by]
+                #if not logger_name in project.logger_infos:
+                    ##~ log.debug("New logger_name: %s" % logger_name)
+                    #child = self.tree.AppendItem(project.root, logger_name)
+                    #loginfo = LoggerInfo(logger_name, child, self.tree, project.parameters)
+                    ##~ self.tree.SetPyData(child, loginfo)
+                    #self.tree.SetPyData(child, LoggerInfoItemData(loginfo, self.list_view))
+                    #project.logger_infos[logger_name] = loginfo
+                    #if self.tree.GetChildrenCount(project.root) == 1:
+                        #self.tree.Expand(project.root)
 
-                #~ focused_loginfo = self.tree.GetPyData(self.tree.GetSelection())
-                #~ if focused_loginfo and focused_loginfo.name == logger_name:
-                    #~ log.debug("Focused!")
-                    #~ try:
-                        #~ pos = self.list_view.Append(param_values)
-                        #~ self.list_view.EnsureVisible(pos)
-                    #~ except UnicodeDecodeError:
-                        #~ log.error("UnicodeDecodeError in TreeOnSelChanged()")
-                #~ else:
-                    #~ loginfo.MarkAsUnRead()
+                #loginfo = project.logger_infos[logger_name]
+                #loginfo.messages.append(param_values)
+
+                ##~ focused_loginfo = self.tree.GetPyData(self.tree.GetSelection())
+                ##~ if focused_loginfo and focused_loginfo.name == logger_name:
+                    ##~ log.debug("Focused!")
+                    ##~ try:
+                        ##~ pos = self.list_view.Append(param_values)
+                        ##~ self.list_view.EnsureVisible(pos)
+                    ##~ except UnicodeDecodeError:
+                        ##~ log.error("UnicodeDecodeError in TreeOnSelChanged()")
+                ##~ else:
+                    ##~ loginfo.MarkAsUnRead()
 
                 return
 

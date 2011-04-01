@@ -14,6 +14,7 @@ from sqlalchemy import select
 
 
 from read_file_thread import FileReader, EVT_LINE_READ
+from filter import ProcessessExpression, parse as parse_filter
 
 log = logging.getLogger(__name__)
 
@@ -39,6 +40,9 @@ class ReadFileProject():
             regex_str = lineFilterNode.prop('regex')
             self.line_filter = re.compile(regex_str)
             self.group_by = int(lineFilterNode.prop('groupBy'))
+
+            self.filters = map(lambda x: FilterNode(x), ctxt.xpathEval("/readFile/filter"))
+
         else:
             raise TypeError('bad arguments')
 
@@ -71,10 +75,7 @@ class ReadFileProject():
 
     def append(self, values):
         engine = create_engine(self.sqlite_url)
-        val_map = {}
-        for index, key in enumerate(self.parameters):
-            val_map[key] = values[index]
-
+        val_map = self.to_dict(values)
         engine.execute(self.log_entries_table.insert(), val_map)
 
     def get_last(self, count):
@@ -86,6 +87,19 @@ class ReadFileProject():
         result.reverse()
         return result
 
+    def to_dict(self, values):
+        val_map = {}
+        for index, key in enumerate(self.parameters):
+            val_map[key] = values[index]
+        return val_map
+
+class FilterNode():
+    def __init__(self, filterNode):
+        proc = ProcessessExpression()
+        filter_expression_str = filterNode.content.strip()
+        self.filter_expression = proc(parse_filter('expression', filter_expression_str), filter_expression_str)
+        self.name = filterNode.prop('name')
+
 if __name__ == '__main__':
     log.info("Start")
     project = ReadFileProject(None, xml_filename='logcat.logproj')
@@ -96,4 +110,5 @@ if __name__ == '__main__':
     project.append(('level', 'name', 't', 'message2'))
     for item in project.get_last(3):
         print(str(item))
+
 
