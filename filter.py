@@ -31,43 +31,35 @@ word            := alphanums, (wordpunct, alphanums)*
 equal           := word, ' '*, '=', ' '*, quoted
 quote           := ['"]
 quoted          := quote, (word / whitespace)+, quote
-<binary_op>     := (equal / in)
-and             := binary_op, (' and ', binary_op)+
-boolean_values  := ('True' / 'False')
-in              := word, ' in (', quoted, (', ', quoted)* , ')'
-expression      := (and / equal / in)
+<binary_op>     := (equal / in_expr)
+and_expr        := binary_op, (' and ', binary_op)+
+#~ boolean_values  := ('True' / 'False')
+in_expr         := word, ' in (', quoted, (', ', quoted)* , ')'
+expression      := (and_expr / binary_op)
 """
 
-#~ parser = generator.buildParser(decl).parserbyname('equal')
-#~
-#~ input =\
-#~ """level= 'D'"""
-#~
-#~ taglist = TextTools.tag(input, parser)
-#~ pprint(taglist)
-
-def parse(parser, input, show_ast=False):
+def check_parse(parser, input, show_ast=False):
     """
-        >>> parse('equal', 'no match')
+        >>> check_parse('equal', 'no match')
         Traceback (most recent call last):
         Exception: unmatched sequence: "match"
 
-        >>> parse('quoted', "'Hello World'")
+        >>> check_parse('quoted', "'Hello World'")
         True
 
-        >>> parse('equal', "lvl = 'x'")
+        >>> check_parse('equal', "lvl = 'x'")
         True
 
-        >>> parse('and', "lvl = 'x' and logger='vm' and foo='bar'")
+        >>> check_parse('and_expr', "lvl = 'x' and logger='vm' and foo='bar'")
         True
 
-        >>> parse('in', "x in ('x', 'xx')", False)
+        >>> check_parse('in_expr', "x in ('x', 'xx')", False)
         True
 
-        >>> parse('expression', "x in ('x', 'xx')", False)
+        >>> check_parse('expression', "x in ('x', 'xx')", False)
         True
 
-        x>>> parse('expression', "x in ('x', 'xx') and x='x'", False)
+        x>>> check_parse('expression', "x in ('x', 'xx') and x='x'", False)
         True
     """
     parser = generator.buildParser(decl).parserbyname(parser)
@@ -129,7 +121,7 @@ def test_and(expression_str):
         >>> stm({'x':'x', 'y':'y', 'a':'b'})
         False
     """
-    return lambda x: test_eval(expression_str, x, 'and', eval_and)
+    return lambda x: test_eval(expression_str, x, 'and_expr', eval_and)
 
 def eval_and(condition, tags, var_values):
     #~ pprint(tags)
@@ -150,7 +142,7 @@ def test_in(expression_str):
         False
     """
     #~ return lambda x: True
-    return lambda x: test_eval(expression_str, x, 'in', eval_in)
+    return lambda x: test_eval(expression_str, x, 'in_expr', eval_in)
 
 def eval_in(expression_str, tags, var_values):
 
@@ -210,9 +202,70 @@ def parse(parser_name, input):
     tags = TextTools.tag(input, parser)
     return [parser_name, 0, tags[2], tags[1]]
 
+class EqualExpression():
+    def __init__(self, var_name, var_value):
+        self.var_name = var_name
+        self.var_value = var_value
+
+    def __repr__(self):
+        return "EqualExpression(%s, '%s')" % (self.var_name, self.var_value)
+
+class AndExpression():
+    def __init__(self, condition1, condition2):
+        self.condition1 = condition1
+        self.condition2 = condition2
+
+    def __repr__(self):
+        return "AndExpression(%s, '%s')" % (self.condition1, self.condition2)
+
+class InExpression():
+    def __init__(self, var_name, var_values):
+        self.var_name = var_name
+        self.var_values = tuple(var_values)
+
+    def __repr__(self):
+        return "InExpression(%s, %s)" % (self.var_name, self.var_values)
+
 IDX_CHILDREN = 3
 from simpleparse.dispatchprocessor import DispatchProcessor, getString, dispatchList
 class ProcessessExpression(DispatchProcessor):
+    def and_expr(self, tags, buffer):
+        """
+            >>> input = "foo = 'bar' and foo2 = 'bar2'"
+            >>> proc = ProcessessExpression()
+            >>> proc(parse('and_expr', input), input)
+            AndExpression(EqualExpression(foo, 'bar'), 'EqualExpression(foo2, 'bar2')')
+        """
+        expr_1 = self(tags[IDX_CHILDREN][0], buffer)
+        expr_2 = self(tags[IDX_CHILDREN][1], buffer)
+        return AndExpression(expr_1, expr_2)
+
+    def in_expr(self, tags, buffer):
+        """
+            >>> input = "foo in ('bar', 'baz', 'barbar')"
+            >>> proc = ProcessessExpression()
+            >>> proc(parse('in_expr', input), input)
+            InExpression(foo, ('bar', 'baz', 'barbar'))
+        """
+        retval = result = dispatchList(self, tags[IDX_CHILDREN], buffer )
+        #~ pprint(retval)
+        return InExpression(retval[0], retval[1:])
+        var_name = self(tags[IDX_CHILDREN][0], buffer)
+        var_value = self(tags[IDX_CHILDREN][1], buffer)
+        return EqualExpression(var_name, var_value)
+
+    def equal(self, tags, buffer):
+        """
+            >>> input = "foo = 'bar'"
+            >>> proc = ProcessessExpression()
+            >>> proc(parse('equal', input), input)
+            EqualExpression(foo, 'bar')
+        """
+        #~ pprint(tags)
+        var_name = self(tags[IDX_CHILDREN][0], buffer)
+        var_value = self(tags[IDX_CHILDREN][1], buffer)
+        return EqualExpression(var_name, var_value)
+
     def quote(self, tag, buffer):
         return None
 
@@ -247,9 +300,6 @@ class ProcessessExpression(DispatchProcessor):
             'foo'
         """
         return self(tags[IDX_CHILDREN][0], buffer)
-
-    def equal(self, tags, buffer):
-        return "equal"
 
     def alphanums(self, tags, buffer):
         """
