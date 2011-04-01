@@ -6,6 +6,7 @@ import libxml2
 
 from read_file_thread import FileReader, EVT_LINE_READ
 from read_file_project import ReadFileProject
+from filter import get_filter_class, ParsingFailedError
 
 if __name__ == '__main__':
     import logging.config
@@ -16,6 +17,7 @@ log = logging.getLogger(__name__)
 class TreeItemData():
     def __init__(self, list_view):
         self.list_view = list_view
+        self.filter_expression = None
 
     def OnSelChanged(self, event):
         log.debug("TreeItemData.OnSelChanged()")
@@ -115,10 +117,19 @@ class MyFrame(wx.Frame):
                            wx.DefaultSize, wx.TR_DEFAULT_STYLE)
         self.Bind(wx.EVT_TREE_SEL_CHANGED, self.TreeOnSelChanged, self.tree)
 
-        self.list_view = LogLinesListCtrlPanel(self.splitter)
+        panel = wx.Panel(self.splitter)
+
+        self.filter_textbox = wx.TextCtrl(panel, wx.ID_ANY, "Test it out and see")
+        self.Bind(wx.EVT_TEXT, self.OnFilterBoxText)
+
+        self.list_view = LogLinesListCtrlPanel(panel)
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        sizer.Add(self.filter_textbox, 0, wx.EXPAND)
+        sizer.Add(self.list_view, 1, wx.EXPAND)
+        panel.SetSizer(sizer)
 
         self.splitter.SetMinimumPaneSize(20)
-        self.splitter.SplitVertically(self.tree, self.list_view, 240)
+        self.splitter.SplitVertically(self.tree, panel, 240)
         self.Bind(wx.EVT_SIZE, self.OnSize)
         self.Bind(wx.EVT_CLOSE, self.OnFormClose)
 
@@ -143,6 +154,22 @@ class MyFrame(wx.Frame):
     def OnSize(self, event):
         w,h = self.GetClientSizeTuple()
         self.splitter.SetDimensions(0, 0, w, h)
+
+    def OnFilterBoxText(self, event):
+        text = event.GetString().strip()
+        log.debug("text: %s" % text)
+        try:
+            expr = get_filter_class(text)
+            log.debug("expr: %s" % expr)
+
+            node_data = self.tree.GetPyData(self.tree.GetSelection())
+            if node_data:
+                log.debug("setting expr: %s" % expr)
+                node_data.filter_expression = expr
+
+        except ParsingFailedError:
+            log.debug("ParsingFailedError")
+
 
     def MenuMarkAllAsRead(self, event):
         for project in self.projects.values():
@@ -224,7 +251,8 @@ class MyFrame(wx.Frame):
         event.Skip()
 
     def OnUpdate(self, event):
-        #~ log.debug("got line: %s" % event.line)
+        log.debug("got line: %s" % event.line)
+        node_data = self.tree.GetPyData(self.tree.GetSelection())
 
         for project in self.projects.values():
             match = project.line_filter.match(event.line.strip())
@@ -232,9 +260,20 @@ class MyFrame(wx.Frame):
                 param_values = match.groups()
                 project.append(param_values)
 
-                for filter_item in project.filters:
-                    if filter_item.filter_expression.eval_values(project.to_dict(param_values)):
-                        log.debug("[%s] filtered line: %s" % (filter_item.name, event.line))
+                if node_data and node_data.filter_expression and\
+                   node_data.filter_expression.eval_values(project.to_dict(param_values)):
+
+                    try:
+                        pos = self.list_view.Append(param_values)
+                        self.list_view.EnsureVisible(pos)
+                    except UnicodeDecodeError:
+                        log.error("UnicodeDecodeError in TreeOnSelChanged()")
+
+
+                #~ for filter_item in project.filters:
+                    #~ if filter_item.filter_expression.eval_values(project.to_dict(param_values)):
+                        #~ log.debug("[%s] filtered line: %s" % (filter_item.name, event.line))
+                        #~ pass
 
                 ##~ log.debug(match.groups())
                 #logger_name = param_values[project.group_by]

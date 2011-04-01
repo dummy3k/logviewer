@@ -14,7 +14,8 @@ from sqlalchemy import select
 
 
 from read_file_thread import FileReader, EVT_LINE_READ
-from filter import ProcessessExpression, parse as parse_filter
+#~ from filter import ProcessessExpression, parse as parse_filter
+from filter import get_filter_class
 
 log = logging.getLogger(__name__)
 
@@ -95,9 +96,10 @@ class ReadFileProject():
 
 class FilterNode():
     def __init__(self, filterNode):
-        proc = ProcessessExpression()
+        #~ proc = ProcessessExpression()
         filter_expression_str = filterNode.content.strip()
-        self.filter_expression = proc(parse_filter('expression', filter_expression_str), filter_expression_str)
+        #~ self.filter_expression = proc(parse_filter('expression', filter_expression_str), filter_expression_str)
+        self.filter_expression = get_filter_class(filter_expression_str)
         self.name = filterNode.prop('name')
 
 if __name__ == '__main__':

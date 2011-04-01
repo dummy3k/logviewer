@@ -1,6 +1,9 @@
+import logging
 from simpleparse import generator
 from mx.TextTools import TextTools
 from pprint import pprint
+
+log = logging.getLogger(__name__)
 
 decl =\
 """
@@ -50,6 +53,10 @@ def check_parse(parser, input, show_ast=False):
         raise Exception('unmatched sequence: "%s"' % ( input[retval[2]:]))
     return True
 
+
+class ParsingFailedError(Exception):
+    pass
+
 def parse(parser_name, input):
     """
         execute parse and return result as if it was a sub group.
@@ -76,6 +83,9 @@ def parse(parser_name, input):
     """
     parser = generator.buildParser(decl).parserbyname(parser_name)
     tags = TextTools.tag(input, parser)
+    if tags[0] == 0 or tags[2] != len(input):
+        raise ParsingFailedError("parsing failed")
+
     return [parser_name, 0, tags[2], tags[1]]
 
 class EqualExpression():
@@ -259,7 +269,13 @@ class ProcessessExpression(DispatchProcessor):
             >>> proc(parse('expression', input), input)
             AndExpression(EqualExpression(foo, 'bar'), 'EqualExpression(foo2, 'bar2')')
         """
+        log.debug("expression: %s" % str(tags))
         return self(tags[IDX_CHILDREN][0], buffer)
+
+def get_filter_class(filter_expression_str):
+    proc = ProcessessExpression()
+    tags = parse('expression', filter_expression_str)
+    return proc(tags, filter_expression_str)
 
 if __name__ == '__main__':
     import doctest
