@@ -182,25 +182,90 @@ def eval_in(expression_str, tags, var_values):
 
     return False
 
-from simpleparse.dispatchprocessor import DispatchProcessor
+def parse(parser_name, input):
+    """
+        execute parse and return result as if it was a sub group.
+
+        This is what normally happens. Notice that the result does
+        not contain 'quoted'
+        >>> parser = generator.buildParser(decl).parserbyname('quoted')
+        >>> input = "'foo'"
+        >>> pprint(TextTools.tag(input, parser))
+        (1,
+         [('quote', 0, 1, None),
+          ('word', 1, 4, [('alphanums', 1, 4, None)]),
+          ('quote', 4, 5, None)],
+         5)
+
+        >>> pprint(parse('quoted', input))
+        ['quoted',
+         0,
+         5,
+         [('quote', 0, 1, None),
+          ('word', 1, 4, [('alphanums', 1, 4, None)]),
+          ('quote', 4, 5, None)]]
+
+    """
+    parser = generator.buildParser(decl).parserbyname(parser_name)
+    tags = TextTools.tag(input, parser)
+    return [parser_name, 0, tags[2], tags[1]]
+
+IDX_CHILDREN = 3
+from simpleparse.dispatchprocessor import DispatchProcessor, getString, dispatchList
 class ProcessessExpression(DispatchProcessor):
-    """
-        >>> parser = generator.buildParser(decl).parserbyname('equal')
-        >>> input = "lvl = 'x'"
-        >>> tags = TextTools.tag(input, parser)
-        >>> proc = ProcessessExpression()
-        >>> proc(tags, input)
-    """
-    def quoted(self, tag, buffer):
-        return "quoted(%s)" % str(tag)
+    def quote(self, tag, buffer):
+        return None
 
-    def word(self, tag, buffer):
-        return "word"
+    def quoted(self, tags, buffer):
+        """
+            >>> proc = ProcessessExpression()
+            >>> input = "'foo'"
+            >>> proc(parse('quoted', input), input)
+            'foo'
+            >>> input = "'foo bar'"
+            >>> proc(parse('quoted', input), input)
+            'foo bar'
+        """
+        retval = result = dispatchList(self, tags[IDX_CHILDREN], buffer )
+        def concat(values):
+            retval = ''
+            for item in values:
+                if item:
+                    retval += item
+            return retval
 
-    def alphanums(self, tag, buffer):
-        return "alphanums"
+        retval = concat(retval)
+        #~ pprint(retval)
+        return retval
+        return self(tags[IDX_CHILDREN][1], buffer)
+
+    def word(self, tags, buffer):
+        """
+            >>> input = "foo"
+            >>> proc = ProcessessExpression()
+            >>> proc(parse('word', input), input)
+            'foo'
+        """
+        return self(tags[IDX_CHILDREN][0], buffer)
+
+    def equal(self, tags, buffer):
+        return "equal"
+
+    def alphanums(self, tags, buffer):
+        """
+            >>> input = "foo"
+            >>> proc = ProcessessExpression()
+            >>> proc(parse('alphanums', input), input)
+            'foo'
+        """
+        return getString(tags, buffer)
+
+    def whitespace(self, tags, buffer):
+        return getString(tags, buffer)
 
 
 if __name__ == '__main__':
     import doctest
     doctest.testmod()
+
+    #~ pprint(parse('equal', "lvl = 'x'"))
