@@ -153,6 +153,8 @@ def test_in(expression_str):
     return lambda x: test_eval(expression_str, x, 'in', eval_in)
 
 def eval_in(expression_str, tags, var_values):
+
+
     #~ pprint(tags)
 
     #(1,
@@ -179,6 +181,24 @@ def eval_in(expression_str, tags, var_values):
             return True
 
     return False
+
+from simpleparse.dispatchprocessor import DispatchProcessor
+class ProcessessExpression(DispatchProcessor):
+    """
+        >>> parser = generator.buildParser(decl).parserbyname('equal')
+        >>> input = "lvl = 'x'"
+        >>> tags = TextTools.tag(input, parser)
+        >>> proc = ProcessessExpression()
+        >>> proc(tags, input)
+    """
+    def quoted(self, tag, buffer):
+        return "quoted(%s)" % str(tag)
+
+    def word(self, tag, buffer):
+        return "word"
+
+    def alphanums(self, tag, buffer):
+        return "alphanums"
 
 
 if __name__ == '__main__':
