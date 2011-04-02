@@ -122,11 +122,17 @@ class EqualExpression():
             >>> from sqlalchemy import Table, Column, Integer, MetaData
             >>> t = Table('my_table', MetaData(), Column('id', Integer))
             >>> expr = EqualExpression('id', '7')
-            >>> str(expr.get_where(t))
-            "my_table.id = '7'"
+            >>> stm = expr.get_where(t)
+            >>> print(stm)
+            my_table.id = :id_1
+
+            >>> print(stm.compile().params)
+            {u'id_1': '7'}
+
         """
         from sqlalchemy import text
-        return table.columns[self.var_name] == text("'%s'" % self.var_value)
+        #~ return table.columns[self.var_name] == text("'%s'" % self.var_value)
+        return table.columns[self.var_name] == self.var_value
 
 class AndExpression():
     def __init__(self, condition1, condition2):
