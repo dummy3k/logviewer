@@ -166,6 +166,10 @@ class InExpression():
                 return True
         return False
 
+class TrueExpression():
+    def eval_values(self, values):
+        return True
+
 IDX_CHILDREN = 3
 from simpleparse.dispatchprocessor import DispatchProcessor, getString, dispatchList
 class ProcessessExpression(DispatchProcessor):

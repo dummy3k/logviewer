@@ -7,7 +7,7 @@ from copy import copy
 
 from read_file_thread import FileReader, EVT_LINE_READ
 from read_file_project import ReadFileProject
-from filter import get_filter_class, ParsingFailedError
+from filter import get_filter_class, ParsingFailedError, TrueExpression
 from gui import *
 
 if __name__ == '__main__':
@@ -41,6 +41,7 @@ class ProjectTreeItemData(TreeItemData):
         self.last_row_id = None
         self.project_id = project.get_id()
         self.app_frame = app_frame
+        self.filter_expression = TrueExpression()
 
     def OnSelChanged(self, event):
         log.debug("ProjectTreeItemData.OnSelChanged()")
@@ -117,6 +118,12 @@ class ProjectTreeItemData(TreeItemData):
             self.list_view.FitAndMoveLast()
         log_repeat.debug("size of row buffer: %s" % len(self.rows))
 
+
+class FilterTreeItemData(ProjectTreeItemData):
+    def __init__(self, project, filter, list_view, app_frame):
+        ProjectTreeItemData.__init__(self, project, list_view, app_frame)
+        self.filter = filter
+        self.filter_expression = filter.filter_expression
 
 class LoggerInfoItemData(TreeItemData):
     def __init__(self, logger_info, list_view):
@@ -329,6 +336,18 @@ class MyFrame(wx.Frame):
 
         self.tree.SetPyData(project.root, ProjectTreeItemData(project, self.list_view, self))
 
+        for item in project.filters:
+            node_data = FilterTreeItemData(project, item, self.list_view, self)
+            log.debug("node_data: %s" % node_data)
+            node = self.tree.AppendItem(project.root, item.name)
+            #~ log.debug("node: %s" % node)
+            self.tree.SetPyData(node, node_data)
+            #~ self.tree.SetPyData(node, "foo")
+            node_data = self.tree.GetPyData(node)
+            log.debug("node_data: %s" % node_data)
+
+        self.tree.Expand(project.root)
+
     def TreeOnSelChanged(self, event):
         item_id = event.GetItem()
         if not item_id:
@@ -383,21 +402,26 @@ class MyFrame(wx.Frame):
             if match:
                 param_values = match.groups()
                 db_rowid = project.append(param_values)
-                log_repeat.debug("db_rowid: %s" % db_rowid)
+                #~ log_repeat.debug("db_rowid: %s" % db_rowid)
 
                 if node_data and node_data.project_id == project.get_id():
                     values_with_rowid = [db_rowid]
                     values_with_rowid.extend(param_values)
-                    node_data.IncomingMessage(values_with_rowid)
 
-                if node_data and node_data.filter_expression and\
-                   node_data.filter_expression.eval_values(project.to_dict(param_values)):
+                    if node_data and node_data.filter_expression and\
+                       node_data.filter_expression.eval_values(project.to_dict(values_with_rowid)):
 
-                    try:
-                        pos = self.list_view.Append(param_values)
-                        self.list_view.EnsureVisible(pos)
-                    except UnicodeDecodeError:
-                        log.error("UnicodeDecodeError in TreeOnSelChanged()")
+                        node_data.IncomingMessage(values_with_rowid)
+
+                        log.debug("add line: %s" % str(values_with_rowid))
+
+                        #try:
+                            ##~ pos = self.list_view.Append(param_values)
+                            ##~ self.list_view.EnsureVisible(pos)
+                            #log.debug("add line (dict): %s" % str(project.to_dict(values_with_rowid)))
+                            #pass
+                        #except UnicodeDecodeError:
+                            #log.error("UnicodeDecodeError in TreeOnSelChanged()")
 
 
                 #~ for filter_item in project.filters:
