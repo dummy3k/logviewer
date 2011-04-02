@@ -10,7 +10,7 @@ if __name__ == '__main__':
 
 from sqlalchemy import create_engine
 from sqlalchemy import Table, Column, Integer, String, MetaData, ForeignKey
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 
 from read_file_thread import FileReader, EVT_LINE_READ
@@ -35,6 +35,7 @@ class ReadFileProject():
 
             pnodes = ctxt.xpathEval("/readFile/lineFilter/parameter")
             self.parameters = map(lambda x: x.prop('name'), pnodes)
+            self.parameters.insert(0, "rowid")
             log.debug("self.parameters: %s" % self.parameters)
 
             lineFilterNode = ctxt.xpathEval("/readFile/lineFilter")[0]
@@ -86,6 +87,23 @@ class ReadFileProject():
         engine = create_engine(self.sqlite_url)
         result = engine.execute(query).fetchall()
         result.reverse()
+        return result
+
+    def get_row_count(self):
+        query = select([func.count("*")], from_obj=[self.log_entries_table])
+        engine = create_engine(self.sqlite_url)
+        result = engine.execute(query).fetchall()
+        return result[0][0]
+
+    def get_next(self, offset, count):
+                #~ order_by(self.log_entries_table.c.id.desc()).\
+        query = select([self.log_entries_table]).\
+                offset(offset).\
+                limit(count)
+        log.debug("SQL:\n%s" % str(query))
+        engine = create_engine(self.sqlite_url)
+        result = engine.execute(query).fetchall()
+        #~ result.reverse()
         return result
 
     def to_dict(self, values):

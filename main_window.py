@@ -23,19 +23,77 @@ class TreeItemData():
         log.debug("TreeItemData.OnSelChanged()")
         self.list_view.SetColumns([])
 
+    def GetSqlCmd(self):
+        return None
+
 class ProjectTreeItemData(TreeItemData):
+    CNT_READ_AHEAD = 100
+    ROW_BUFFER_SIZE = 3 * CNT_READ_AHEAD
+
     def __init__(self, project, list_view):
         TreeItemData.__init__(self, list_view)
         self.project = project
+        self.rows = {}
+        self.last_row_id = None
 
     def OnSelChanged(self, event):
         log.debug("ProjectTreeItemData.OnSelChanged()")
-        self.list_view.SetColumns(self.project.parameters)
-        for item in self.project.get_last(MyFrame.MAX_LIST_ITEMS):
-            item_id = self.list_view.Append(item[1:])
-            #~ log.debug(item_id)
 
-        self.list_view.FitAndMoveLast()
+        row_count = self.project.get_row_count()
+        log.debug("row_count: %s" % row_count)
+
+        #~ GetCountPerPage
+
+        self.list_view.SetColumns(self.project.parameters)
+        self.list_view.SetItemCount(row_count)
+        self.list_view.OnGetItemTextCallback = self
+        self.list_view.Refresh()
+        #~ for item in self.project.get_last(MyFrame.MAX_LIST_ITEMS):
+            #~ item_id = self.list_view.Append(item[1:])
+        #~ self.list_view.FitAndMoveLast()
+
+    def OnGetItemText(self, item, col):
+        #~ if col == 0:
+            #~ log.debug("ProjectTreeItemData.OnGetItemText(%s, %s)" % (item, col))
+
+        if not self.last_row_id:
+            going_up = False
+        elif self.last_row_id < item:
+            going_up = False
+        elif self.last_row_id > item:
+            going_up = True
+
+        self.last_row_id = item
+
+        if not item in self.rows:
+            if len(self.rows) + ProjectTreeItemData.CNT_READ_AHEAD > ProjectTreeItemData.ROW_BUFFER_SIZE:
+                going_down = not going_up
+                log.debug("ProjectTreeItemData.OnGetItemText(%s, %s)" % (item, col))
+                log.debug("shrinking buffer")
+                new_buffer = {}
+                for key, value in self.rows.iteritems():
+                    if going_down and key > item - ProjectTreeItemData.ROW_BUFFER_SIZE:
+                        new_buffer[key] = value
+                    if going_up and key < item + ProjectTreeItemData.ROW_BUFFER_SIZE:
+                        new_buffer[key] = value
+
+                self.rows = new_buffer
+                log.debug("buffer: %s" % sorted(self.rows.keys()))
+
+            if going_up:
+                log.debug("going up")
+                offset = item - ProjectTreeItemData.CNT_READ_AHEAD + 1
+            else:
+                offset = item
+
+            for index, new_row in enumerate(self.project.get_next(offset,
+                ProjectTreeItemData.CNT_READ_AHEAD)):
+
+                self.rows[offset + index] = new_row
+
+            log.debug("size of row buffer: %s" % len(self.rows))
+
+        return self.rows[item][col]
 
 class LoggerInfoItemData(TreeItemData):
     def __init__(self, logger_info, list_view):
@@ -71,8 +129,12 @@ class LoggerInfo():
 
 class LogLinesListCtrlPanel(wx.ListCtrl, listmix.ListCtrlAutoWidthMixin):
     def __init__(self, parent):
-        wx.ListCtrl.__init__(self, parent, -1, style=wx.WANTS_CHARS | wx.LC_REPORT)
+        wx.ListCtrl.__init__(self, parent, -1, style=wx.WANTS_CHARS | wx.LC_REPORT | wx.LC_VIRTUAL)
         listmix.ListCtrlAutoWidthMixin.__init__(self)
+
+        #~ self.SetColumns(['a', 'b', 'c'])
+        #~ self.SetItemCount(10000)
+        self.OnGetItemTextCallback = None
 
     def SetColumns(self, col_names):
         #~ log.debug("LogLinesListCtrlPanel.SetColumns")
@@ -85,6 +147,15 @@ class LogLinesListCtrlPanel(wx.ListCtrl, listmix.ListCtrlAutoWidthMixin):
         for index in range(self.GetColumnCount()):
             self.SetColumnWidth(index, wx.LIST_AUTOSIZE)
         self.EnsureVisible(self.GetItemCount() - 1)
+
+    def SetSqlCmd(self):
+        pass
+
+    def OnGetItemText(self, item, col):
+        #~ log.debug("LogLinesListCtrlPanel.OnGetItemText()")
+        if not self.OnGetItemTextCallback:
+            return "no self.OnGetItemTextCallback"
+        return self.OnGetItemTextCallback.OnGetItemText(item, col)
 
 class MyFrame(wx.Frame):
     WINDOW_XML_FILENAME = 'var/window.xml'
