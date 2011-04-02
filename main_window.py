@@ -4,14 +4,15 @@ import wx
 import libxml2
 from copy import copy
 
+if __name__ == '__main__':
+    import logging.config
+    logging.config.fileConfig("logging.conf")
+
+
 from read_file_thread import FileReader, EVT_LINE_READ
 from read_file_project import ReadFileProject
 from filter import get_filter_class, ParsingFailedError, TrueExpression
 from gui import *
-
-if __name__ == '__main__':
-    import logging.config
-    logging.config.fileConfig("logging.conf")
 
 log = logging.getLogger(__name__)
 log_repeat = logging.getLogger(__name__ + '.repeat')
@@ -53,6 +54,7 @@ class ProjectTreeItemData(TreeItemData):
         self.__row_cnt__ = int(row_count)
         self.rows = {}
 
+        self.list_view.SaveColumnWidthDict()
         self.list_view.SetColumns(self.project.parameters)
         self.list_view.SetItemCount(row_count)
         self.list_view.OnGetItemTextCallback = self
@@ -176,6 +178,26 @@ class MyFrame(wx.Frame):
             ):
 
         wx.Frame.__init__(self, parent, ID, title, pos, size, style)
+
+        col_width_dict = {}
+        if os.path.exists(MyFrame.WINDOW_XML_FILENAME):
+            doc = libxml2.parseFile(MyFrame.WINDOW_XML_FILENAME)
+            root = doc.firstElementChild()
+            left = root.prop('left')
+            top = root.prop('top')
+            self.SetPosition((int(left), int(top)))
+
+            width = root.prop('width')
+            height = root.prop('height')
+            self.SetSize((int(width), int(height)))
+
+            ctxt = doc.xpathNewContext()
+            for item in ctxt.xpathEval("/window/col"):
+                log.debug(str(item))
+                col_name = item.prop('name')
+                col_width = item.prop('width')
+                col_width_dict[col_name] = int(col_width)
+
         self.splitter = wx.SplitterWindow(self)
 
         menuBar = wx.MenuBar()
@@ -201,7 +223,7 @@ class MyFrame(wx.Frame):
         self.filter_textbox = wx.TextCtrl(panel, wx.ID_ANY, "Test it out and see")
         self.Bind(wx.EVT_TEXT, self.OnFilterBoxText)
 
-        self.list_view = LogLinesListCtrlPanel(panel)
+        self.list_view = LogLinesListCtrlPanel(panel, col_width_dict)
         self.list_view.Bind(LogLinesListCtrlPanel.EVT_AT_BOTTOM, self.OnListViewAtBottom)
 
         sizer = wx.BoxSizer(wx.VERTICAL)
@@ -225,18 +247,7 @@ class MyFrame(wx.Frame):
         root = self.tree.AddRoot("LogViewer")
 
         self.LoadProject('logcat.logproj')
-        #~ self.LoadProject('moblock.logproj')
-
-        if os.path.exists(MyFrame.WINDOW_XML_FILENAME):
-            doc = libxml2.parseFile(MyFrame.WINDOW_XML_FILENAME)
-            root = doc.firstElementChild()
-            left = root.prop('left')
-            top = root.prop('top')
-            self.SetPosition((int(left), int(top)))
-
-            width = root.prop('width')
-            height = root.prop('height')
-            self.SetSize((int(width), int(height)))
+        self.LoadProject('moblock.logproj')
 
     def OnSize(self, event):
         w,h = self.GetClientSizeTuple()
@@ -275,9 +286,18 @@ class MyFrame(wx.Frame):
         width, height = self.GetSize()
         root.setProp('width', str(width))
         root.setProp('height', str(height))
+        #~ self.list_view.SaveLayout(root)
+
+        #~ ProjectTreeItemData.ColumnWidthDicts = self.list_view.GetColumnWidthDict()
+        self.list_view.SaveColumnWidthDict()
+        for key, value in self.list_view.GetColumnWidthDict().iteritems():
+            log.debug("key: %s" % key)
+            xml_col = root.newChild(None, 'col', None)
+            xml_col.setProp('name', key)
+            xml_col.setProp('width', str(value))
 
         log.debug("XML: %s" % doc.serialize())
-        doc.saveFile(MyFrame.WINDOW_XML_FILENAME)
+        doc.saveFormatFile(MyFrame.WINDOW_XML_FILENAME, True)
 
         event.Skip()
 
@@ -370,7 +390,7 @@ class MyFrame(wx.Frame):
 
                         node_data.IncomingMessage(values_with_rowid)
 
-                        log.debug("add line: %s" % str(values_with_rowid))
+                        log_repeat.debug("add line: %s" % str(values_with_rowid))
 
                         #try:
                             ##~ pos = self.list_view.Append(param_values)

@@ -7,7 +7,7 @@ log = logging.getLogger(__name__)
 class LogLinesListCtrlPanel(wx.ListCtrl, listmix.ListCtrlAutoWidthMixin):
     (AtBottomChangedEvent, EVT_AT_BOTTOM) = wx.lib.newevent.NewEvent()
 
-    def __init__(self, parent):
+    def __init__(self, parent, col_width_dict):
         wx.ListCtrl.__init__(self, parent, -1, style=wx.WANTS_CHARS | wx.LC_REPORT | wx.LC_VIRTUAL)
         listmix.ListCtrlAutoWidthMixin.__init__(self)
 
@@ -16,6 +16,7 @@ class LogLinesListCtrlPanel(wx.ListCtrl, listmix.ListCtrlAutoWidthMixin):
         self.OnGetItemTextCallback = None
         self.__last_top_item = None
         self.at_bottom = None
+        self.__col_width__ = col_width_dict
 
     def SetColumns(self, col_names):
         log.debug("LogLinesListCtrlPanel.SetColumns")
@@ -23,21 +24,18 @@ class LogLinesListCtrlPanel(wx.ListCtrl, listmix.ListCtrlAutoWidthMixin):
         self.DeleteAllColumns()
         for index, name in enumerate(col_names):
             self.InsertColumn(index, name)
+            if name in self.__col_width__:
+                self.SetColumnWidth(index, self.__col_width__[name])
 
     def MoveLast(self):
         log.debug("LogLinesListCtrlPanel.FitAndMoveLast")
         self.EnsureVisible(self.GetItemCount() - 1)
 
-    def FitAndMoveLast(self):
-        log.debug("LogLinesListCtrlPanel.FitAndMoveLast")
-        self.EnsureVisible(self.GetItemCount() - 1)
-        for index in range(self.GetColumnCount()):
-            self.SetColumnWidth(index, wx.LIST_AUTOSIZE)
-
-    def ProcessEvent(*args, **kwargs):
-        log.debug("ProcessEvent")
-        LogLinesListCtrlPanel.ProcessEvent(*args, **kwargs)
-
+    #~ def FitAndMoveLast(self):
+        #~ log.debug("LogLinesListCtrlPanel.FitAndMoveLast")
+        #~ self.EnsureVisible(self.GetItemCount() - 1)
+        #~ for index in range(self.GetColumnCount()):
+            #~ self.SetColumnWidth(index, wx.LIST_AUTOSIZE)
 
     def OnGetItemText(self, item, col):
         #~ log.debug("LogLinesListCtrlPanel.OnGetItemText()")
@@ -59,3 +57,25 @@ class LogLinesListCtrlPanel(wx.ListCtrl, listmix.ListCtrlAutoWidthMixin):
             wx.PostEvent(self, evt)
 
         #~ log.debug("at_bottom: %s" % self.at_bottom)
+
+
+    def SaveColumnWidthDict(self):
+        #~ retval = {}
+        for index in range(self.GetColumnCount()):
+            col_name = self.GetColumn(index).GetText()
+            self.__col_width__[col_name] = self.GetColumnWidth(index)
+        #~ return retval
+
+    def GetColumnWidthDict(self):
+        return self.__col_width__
+
+    def SaveLayout(self, xml_parent):
+        root = xml_parent.newChild(None, 'LogLinesListCtrlPanel', None)
+        for index in range(self.GetColumnCount()):
+            xml_col = root.newChild(None, 'col', None)
+            xml_col.setProp('width', str(self.GetColumnWidth(index)))
+            #~ log.debug("col: %s" % )
+
+            col_name = self.GetColumn(index).GetText()
+            xml_col.setProp('name', col_name)
+
