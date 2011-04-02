@@ -133,6 +133,13 @@ class EqualExpression():
         from sqlalchemy import text
         #~ return table.columns[self.var_name] == text("'%s'" % self.var_value)
         return table.columns[self.var_name] == self.var_value
+    def to_string(self):
+        """
+            >>> EqualExpression('id', '7').to_string()
+            "id = '7'"
+        """
+        return "%s = '%s'" % (self.var_name, str(self.var_value))
+
 
 class AndExpression():
     def __init__(self, condition1, condition2):
@@ -196,6 +203,13 @@ class InExpression():
             {u'id_2': '8', u'id_3': '9', u'id_1': '7'}
         """
         return table.columns[self.var_name].in_(self.var_values)
+
+    def to_string(self):
+        """
+            >>> InExpression('id', ['7', '8', '9']).to_string()
+            "id in ('7', '8', '9')"
+        """
+        return "%s in %s" % (self.var_name, str(self.var_values))
 
 class TrueExpression():
     def eval_values(self, values):

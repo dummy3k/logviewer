@@ -49,16 +49,13 @@ class ProjectTreeItemData(TreeItemData):
 
         row_count = self.project.get_row_count(self.where_clause)
         log.debug("row_count: %s" % row_count)
-
-        #~ GetCountPerPage
+        self.app_frame.sb.SetStatus('row_cnt', "Rows: %s" % row_count, True)
 
         self.list_view.SetColumns(self.project.parameters)
         self.list_view.SetItemCount(row_count)
         self.list_view.OnGetItemTextCallback = self
         self.list_view.Refresh()
         self.list_view.FitAndMoveLast()
-        #~ for item in self.project.get_last(MyFrame.MAX_LIST_ITEMS):
-            #~ item_id = self.list_view.Append(item[1:])
 
     def OnGetItemText(self, item, col):
         #~ if col == 0:
