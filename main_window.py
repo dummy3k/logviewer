@@ -30,8 +30,8 @@ class TreeItemData():
         pass
 
 class ProjectTreeItemData(TreeItemData):
-    CNT_READ_AHEAD = 100
-    ROW_BUFFER_SIZE = 3 * CNT_READ_AHEAD
+    CNT_READ_AHEAD = 30
+    ROW_BUFFER_SIZE = 2 * CNT_READ_AHEAD
 
     def __init__(self, project, list_view):
         TreeItemData.__init__(self, list_view)
@@ -70,19 +70,9 @@ class ProjectTreeItemData(TreeItemData):
         self.last_row_id = item
 
         if not item in self.rows:
+            log.debug("ProjectTreeItemData.OnGetItemText(%s, %s)" % (item, col))
             if len(self.rows) + ProjectTreeItemData.CNT_READ_AHEAD > ProjectTreeItemData.ROW_BUFFER_SIZE:
-                going_down = not going_up
-                log.debug("ProjectTreeItemData.OnGetItemText(%s, %s)" % (item, col))
-                log.debug("shrinking buffer")
-                new_buffer = {}
-                for key, value in self.rows.iteritems():
-                    if going_down and key >= item - ProjectTreeItemData.ROW_BUFFER_SIZE:
-                        new_buffer[key] = value
-                    if going_up and key <= item + ProjectTreeItemData.ROW_BUFFER_SIZE:
-                        new_buffer[key] = value
-
-                self.rows = new_buffer
-                log.debug("buffer: %s" % sorted(self.rows.keys()))
+                self.__shrink_buffer__(going_up, item)
 
             if going_up:
                 log.debug("going up")
@@ -100,13 +90,29 @@ class ProjectTreeItemData(TreeItemData):
 
         return self.rows[item][col]
 
+    def __shrink_buffer__(self, going_up, item):
+        log.debug("shrinking buffer")
+        new_buffer = {}
+        for key, value in self.rows.iteritems():
+            if going_up and key <= item + ProjectTreeItemData.ROW_BUFFER_SIZE:
+                new_buffer[key] = value
+            elif not going_up and key >= item - ProjectTreeItemData.ROW_BUFFER_SIZE:
+                new_buffer[key] = value
+
+        self.rows = new_buffer
+        log.debug("buffer: %s, len: %s" % (sorted(self.rows.keys()), len(self.rows)))
+
+
     def IncomingMessage(self, msg):
         item_index = self.list_view.GetItemCount()
+        if len(self.rows) + 1 > ProjectTreeItemData.ROW_BUFFER_SIZE:
+            self.__shrink_buffer__(False, item_index + ProjectTreeItemData.CNT_READ_AHEAD)
         log_repeat.debug("appending %s to list at %s" % (str(msg), item_index))
         self.rows[item_index] = msg
         self.list_view.SetItemCount(item_index + 1)
         self.list_view.Refresh()
         self.list_view.FitAndMoveLast()
+        log_repeat.debug("size of row buffer: %s" % len(self.rows))
 
 
 class LoggerInfoItemData(TreeItemData):
@@ -345,7 +351,7 @@ class MyFrame(wx.Frame):
             if match:
                 param_values = match.groups()
                 db_rowid = project.append(param_values)
-                log.debug("db_rowid: %s" % db_rowid)
+                log_repeat.debug("db_rowid: %s" % db_rowid)
 
                 if node_data and node_data.project_id == project.get_id():
                     values_with_rowid = [db_rowid]
