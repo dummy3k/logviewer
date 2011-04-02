@@ -77,7 +77,7 @@ class ReadFileProject():
 
     def append(self, values):
         engine = create_engine(self.sqlite_url)
-        val_map = self.to_dict(values)
+        val_map = self.to_dict(values, False)
         engine.execute(self.log_entries_table.insert(), val_map)
 
     def get_last(self, count):
@@ -104,12 +104,19 @@ class ReadFileProject():
         engine = create_engine(self.sqlite_url)
         result = engine.execute(query).fetchall()
         #~ result.reverse()
+        #~ log.debug("result: %s" % result)
         return result
 
-    def to_dict(self, values):
+    def to_dict(self, values, with_rowid=True):
         val_map = {}
-        for index, key in enumerate(self.parameters):
-            val_map[key] = values[index]
+        if with_rowid:
+            for index, key in enumerate(self.parameters):
+                    val_map[key] = values[index]
+        else:
+            for index, key in enumerate(self.parameters):
+                if key != "rowid":
+                    val_map[key] = values[index - 1]
+
         return val_map
 
 class FilterNode():

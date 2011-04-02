@@ -13,6 +13,7 @@ if __name__ == '__main__':
     logging.config.fileConfig("logging.conf")
 
 log = logging.getLogger(__name__)
+log_repeat = logging.getLogger(__name__ + '.repeat')
 
 class TreeItemData():
     def __init__(self, list_view):
@@ -23,8 +24,8 @@ class TreeItemData():
         log.debug("TreeItemData.OnSelChanged()")
         self.list_view.SetColumns([])
 
-    def GetSqlCmd(self):
-        return None
+    def IncomingMessage(self, msg):
+        pass
 
 class ProjectTreeItemData(TreeItemData):
     CNT_READ_AHEAD = 100
@@ -48,9 +49,9 @@ class ProjectTreeItemData(TreeItemData):
         self.list_view.SetItemCount(row_count)
         self.list_view.OnGetItemTextCallback = self
         self.list_view.Refresh()
+        self.list_view.FitAndMoveLast()
         #~ for item in self.project.get_last(MyFrame.MAX_LIST_ITEMS):
             #~ item_id = self.list_view.Append(item[1:])
-        #~ self.list_view.FitAndMoveLast()
 
     def OnGetItemText(self, item, col):
         #~ if col == 0:
@@ -72,9 +73,9 @@ class ProjectTreeItemData(TreeItemData):
                 log.debug("shrinking buffer")
                 new_buffer = {}
                 for key, value in self.rows.iteritems():
-                    if going_down and key > item - ProjectTreeItemData.ROW_BUFFER_SIZE:
+                    if going_down and key >= item - ProjectTreeItemData.ROW_BUFFER_SIZE:
                         new_buffer[key] = value
-                    if going_up and key < item + ProjectTreeItemData.ROW_BUFFER_SIZE:
+                    if going_up and key <= item + ProjectTreeItemData.ROW_BUFFER_SIZE:
                         new_buffer[key] = value
 
                 self.rows = new_buffer
@@ -89,11 +90,15 @@ class ProjectTreeItemData(TreeItemData):
             for index, new_row in enumerate(self.project.get_next(offset,
                 ProjectTreeItemData.CNT_READ_AHEAD)):
 
-                self.rows[offset + index] = new_row
+                #~ log.debug("new_row: %s" % new_row)
+                self.rows[offset + index] = new_row[1:]
 
             log.debug("size of row buffer: %s" % len(self.rows))
 
         return self.rows[item][col]
+
+    def IncomingMessage(self, msg):
+        pass
 
 class LoggerInfoItemData(TreeItemData):
     def __init__(self, logger_info, list_view):
@@ -144,9 +149,9 @@ class LogLinesListCtrlPanel(wx.ListCtrl, listmix.ListCtrlAutoWidthMixin):
             self.InsertColumn(index, name)
 
     def FitAndMoveLast(self):
+        self.EnsureVisible(self.GetItemCount() - 1)
         for index in range(self.GetColumnCount()):
             self.SetColumnWidth(index, wx.LIST_AUTOSIZE)
-        self.EnsureVisible(self.GetItemCount() - 1)
 
     def SetSqlCmd(self):
         pass
@@ -322,8 +327,9 @@ class MyFrame(wx.Frame):
         event.Skip()
 
     def OnUpdate(self, event):
-        log.debug("got line: %s" % event.line)
+        log_repeat.debug("got line: %s" % event.line)
         node_data = self.tree.GetPyData(self.tree.GetSelection())
+        log_repeat.debug("type of node_data: %s" % type(node_data))
 
         for project in self.projects.values():
             match = project.line_filter.match(event.line.strip())
