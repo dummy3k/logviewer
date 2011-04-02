@@ -79,6 +79,7 @@ class ReadFileProject():
         engine = create_engine(self.sqlite_url)
         val_map = self.to_dict(values, False)
         engine.execute(self.log_entries_table.insert(), val_map)
+        return -1
 
     def get_last(self, count):
         query = select([self.log_entries_table]).\

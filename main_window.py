@@ -3,6 +3,7 @@ import re, os
 import wx
 import wx.lib.mixins.listctrl  as  listmix
 import libxml2
+from copy import copy
 
 from read_file_thread import FileReader, EVT_LINE_READ
 from read_file_project import ReadFileProject
@@ -19,6 +20,7 @@ class TreeItemData():
     def __init__(self, list_view):
         self.list_view = list_view
         self.filter_expression = None
+        self.project_id = None
 
     def OnSelChanged(self, event):
         log.debug("TreeItemData.OnSelChanged()")
@@ -36,6 +38,7 @@ class ProjectTreeItemData(TreeItemData):
         self.project = project
         self.rows = {}
         self.last_row_id = None
+        self.project_id = project.get_id()
 
     def OnSelChanged(self, event):
         log.debug("ProjectTreeItemData.OnSelChanged()")
@@ -98,7 +101,13 @@ class ProjectTreeItemData(TreeItemData):
         return self.rows[item][col]
 
     def IncomingMessage(self, msg):
-        pass
+        item_index = self.list_view.GetItemCount()
+        log_repeat.debug("appending %s to list at %s" % (str(msg), item_index))
+        self.rows[item_index] = msg
+        self.list_view.SetItemCount(item_index + 1)
+        self.list_view.Refresh()
+        self.list_view.FitAndMoveLast()
+
 
 class LoggerInfoItemData(TreeItemData):
     def __init__(self, logger_info, list_view):
@@ -335,7 +344,13 @@ class MyFrame(wx.Frame):
             match = project.line_filter.match(event.line.strip())
             if match:
                 param_values = match.groups()
-                project.append(param_values)
+                db_rowid = project.append(param_values)
+                log.debug("db_rowid: %s" % db_rowid)
+
+                if node_data and node_data.project_id == project.get_id():
+                    values_with_rowid = [db_rowid]
+                    values_with_rowid.extend(param_values)
+                    node_data.IncomingMessage(values_with_rowid)
 
                 if node_data and node_data.filter_expression and\
                    node_data.filter_expression.eval_values(project.to_dict(param_values)):
