@@ -8,6 +8,7 @@ from copy import copy
 from read_file_thread import FileReader, EVT_LINE_READ
 from read_file_project import ReadFileProject
 from filter import get_filter_class, ParsingFailedError
+from gui import *
 
 if __name__ == '__main__':
     import logging.config
@@ -30,15 +31,16 @@ class TreeItemData():
         pass
 
 class ProjectTreeItemData(TreeItemData):
-    CNT_READ_AHEAD = 30
-    ROW_BUFFER_SIZE = 2 * CNT_READ_AHEAD
+    CNT_READ_AHEAD = 100
+    ROW_BUFFER_SIZE = 3 * CNT_READ_AHEAD
 
-    def __init__(self, project, list_view):
+    def __init__(self, project, list_view, app_frame):
         TreeItemData.__init__(self, list_view)
         self.project = project
         self.rows = {}
         self.last_row_id = None
         self.project_id = project.get_id()
+        self.app_frame = app_frame
 
     def OnSelChanged(self, event):
         log.debug("ProjectTreeItemData.OnSelChanged()")
@@ -111,7 +113,8 @@ class ProjectTreeItemData(TreeItemData):
         self.rows[item_index] = msg
         self.list_view.SetItemCount(item_index + 1)
         self.list_view.Refresh()
-        self.list_view.FitAndMoveLast()
+        if self.app_frame.auto_scroll:
+            self.list_view.FitAndMoveLast()
         log_repeat.debug("size of row buffer: %s" % len(self.rows))
 
 
@@ -148,13 +151,17 @@ class LoggerInfo():
         self.tree.SetItemBold(self.tree_node, False)
 
 class LogLinesListCtrlPanel(wx.ListCtrl, listmix.ListCtrlAutoWidthMixin):
+    (AtBottomChangedEvent, EVT_AT_BOTTOM) = wx.lib.newevent.NewEvent()
+
     def __init__(self, parent):
         wx.ListCtrl.__init__(self, parent, -1, style=wx.WANTS_CHARS | wx.LC_REPORT | wx.LC_VIRTUAL)
         listmix.ListCtrlAutoWidthMixin.__init__(self)
 
-        #~ self.SetColumns(['a', 'b', 'c'])
-        #~ self.SetItemCount(10000)
+        self.Bind(wx.EVT_PAINT, self.OnPaint)
+        #~ self.Bind(wx.EVT_LEFT_DOWN, self.OnPaint)
         self.OnGetItemTextCallback = None
+        self.__last_top_item = None
+        self.at_bottom = None
 
     def SetColumns(self, col_names):
         #~ log.debug("LogLinesListCtrlPanel.SetColumns")
@@ -168,14 +175,31 @@ class LogLinesListCtrlPanel(wx.ListCtrl, listmix.ListCtrlAutoWidthMixin):
         for index in range(self.GetColumnCount()):
             self.SetColumnWidth(index, wx.LIST_AUTOSIZE)
 
-    def SetSqlCmd(self):
-        pass
+    def ProcessEvent(*args, **kwargs):
+        log.debug("ProcessEvent")
+        LogLinesListCtrlPanel.ProcessEvent(*args, **kwargs)
+
 
     def OnGetItemText(self, item, col):
         #~ log.debug("LogLinesListCtrlPanel.OnGetItemText()")
         if not self.OnGetItemTextCallback:
             return "no self.OnGetItemTextCallback"
         return self.OnGetItemTextCallback.OnGetItemText(item, col)
+
+
+    def OnPaint(self, event):
+        log.debug("OnPaint()")
+        bottom = self.GetTopItem() + self.GetCountPerPage()
+        log.debug("bottom: %s, ItemCount: %s" % (bottom, self.GetItemCount()))
+        new_value = (bottom == self.GetItemCount())
+
+        if self.at_bottom != new_value:
+            log.debug("at_bottom, changed: %s" % new_value)
+            self.at_bottom = new_value
+            evt = LogLinesListCtrlPanel.AtBottomChangedEvent(value=new_value)
+            wx.PostEvent(self, evt)
+
+        #~ log.debug("at_bottom: %s" % self.at_bottom)
 
 class MyFrame(wx.Frame):
     WINDOW_XML_FILENAME = 'var/window.xml'
@@ -214,6 +238,8 @@ class MyFrame(wx.Frame):
         self.Bind(wx.EVT_TEXT, self.OnFilterBoxText)
 
         self.list_view = LogLinesListCtrlPanel(panel)
+        self.list_view.Bind(LogLinesListCtrlPanel.EVT_AT_BOTTOM, self.OnListViewAtBottom)
+
         sizer = wx.BoxSizer(wx.VERTICAL)
         sizer.Add(self.filter_textbox, 0, wx.EXPAND)
         sizer.Add(self.list_view, 1, wx.EXPAND)
@@ -223,6 +249,12 @@ class MyFrame(wx.Frame):
         self.splitter.SplitVertically(self.tree, panel, 240)
         self.Bind(wx.EVT_SIZE, self.OnSize)
         self.Bind(wx.EVT_CLOSE, self.OnFormClose)
+
+        self.sb = CustomStatusBar(self)
+        self.SetStatusBar(self.sb)
+        self.sb.SetStatus('message', 'Hi')
+        self.SetAutoScroll(True)
+
 
         self.tree.Bind(EVT_LINE_READ, self.OnUpdate)
         self.projects = {}
@@ -244,7 +276,7 @@ class MyFrame(wx.Frame):
 
     def OnSize(self, event):
         w,h = self.GetClientSizeTuple()
-        self.splitter.SetDimensions(0, 0, w, h)
+        self.splitter.SetDimensions(0, 0, w, h - 1)
 
     def OnFilterBoxText(self, event):
         text = event.GetString().strip()
@@ -295,7 +327,7 @@ class MyFrame(wx.Frame):
         if self.tree.GetChildrenCount(self.tree.GetRootItem()) == 1:
             self.tree.Expand(self.tree.GetRootItem())
 
-        self.tree.SetPyData(project.root, ProjectTreeItemData(project, self.list_view))
+        self.tree.SetPyData(project.root, ProjectTreeItemData(project, self.list_view, self))
 
     def TreeOnSelChanged(self, event):
         item_id = event.GetItem()
@@ -402,6 +434,16 @@ class MyFrame(wx.Frame):
                 return
 
         log.error("failed match '%s'" % event.line)
+    def SetAutoScroll(self, value):
+        if value:
+            self.sb.SetStatus('scroll_lock', 'Auto Scroll')
+        else:
+            self.sb.SetStatus('scroll_lock', '')
+        self.auto_scroll = value
+
+    def OnListViewAtBottom(self, event):
+        log.debug("OnListViewAtBottom(%s)" % event.value)
+        self.SetAutoScroll(event.value)
 
 def main():
     app = wx.App()
