@@ -42,11 +42,12 @@ class ProjectTreeItemData(TreeItemData):
         self.project_id = project.get_id()
         self.app_frame = app_frame
         self.filter_expression = TrueExpression()
+        self.where_clause = None
 
     def OnSelChanged(self, event):
         log.debug("ProjectTreeItemData.OnSelChanged()")
 
-        row_count = self.project.get_row_count()
+        row_count = self.project.get_row_count(self.where_clause)
         log.debug("row_count: %s" % row_count)
 
         #~ GetCountPerPage
@@ -62,13 +63,14 @@ class ProjectTreeItemData(TreeItemData):
     def OnGetItemText(self, item, col):
         #~ if col == 0:
             #~ log.debug("ProjectTreeItemData.OnGetItemText(%s, %s)" % (item, col))
-
         if not self.last_row_id:
             going_up = False
         elif self.last_row_id < item:
             going_up = False
         elif self.last_row_id > item:
             going_up = True
+        else:
+            going_up = False
 
         self.last_row_id = item
 
@@ -84,7 +86,7 @@ class ProjectTreeItemData(TreeItemData):
                 offset = item
 
             for index, new_row in enumerate(self.project.get_next(offset,
-                ProjectTreeItemData.CNT_READ_AHEAD)):
+                ProjectTreeItemData.CNT_READ_AHEAD, self.where_clause)):
 
                 #~ log.debug("new_row: %s" % new_row)
                 self.rows[offset + index] = new_row[1:]
@@ -124,6 +126,8 @@ class FilterTreeItemData(ProjectTreeItemData):
         ProjectTreeItemData.__init__(self, project, list_view, app_frame)
         self.filter = filter
         self.filter_expression = filter.filter_expression
+        self.where_clause = self.filter_expression.get_where(project.log_entries_table)
+
 
 class LoggerInfoItemData(TreeItemData):
     def __init__(self, logger_info, list_view):

@@ -81,8 +81,14 @@ class ReadFileProject():
         engine.execute(self.log_entries_table.insert(), val_map)
         return -1
 
-    def get_last(self, count):
-        query = select([self.log_entries_table]).\
+    def get_last(self, count, where_expr=None):
+        raise Exception("unused?")
+
+        query = select([self.log_entries_table])
+        if where_expr:
+            query = query.where(where_expr.where())
+
+        query = query.\
                 order_by(self.log_entries_table.c.id.desc()).\
                 limit(count)
         engine = create_engine(self.sqlite_url)
@@ -90,22 +96,30 @@ class ReadFileProject():
         result.reverse()
         return result
 
-    def get_row_count(self):
-        query = select([func.count("*")], from_obj=[self.log_entries_table])
+    def get_row_count(self, whereclause):
+        query = select([func.count("*")], from_obj=[self.log_entries_table], whereclause=whereclause)
+        log.debug("get_row_count:\n%s" % str(query))
         engine = create_engine(self.sqlite_url)
         result = engine.execute(query).fetchall()
         return result[0][0]
 
-    def get_next(self, offset, count):
-                #~ order_by(self.log_entries_table.c.id.desc()).\
-        query = select([self.log_entries_table]).\
+    def get_next(self, offset, count, where_expr=None):
+        #~ query = select([self.log_entries_table]).\
+                #~ offset(offset).\
+                #~ limit(count)
+
+        log.debug("get_next, where_expr: %s" % str(where_expr))
+        query = select([self.log_entries_table], whereclause=where_expr)
+        #~ if where_expr != None:
+            #~ query = query.where(where_expr)
+
+        query = query.\
                 offset(offset).\
                 limit(count)
+
         log.debug("SQL:\n%s" % str(query))
         engine = create_engine(self.sqlite_url)
         result = engine.execute(query).fetchall()
-        #~ result.reverse()
-        #~ log.debug("result: %s" % result)
         return result
 
     def to_dict(self, values, with_rowid=True):

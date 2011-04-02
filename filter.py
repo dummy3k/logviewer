@@ -117,6 +117,17 @@ class EqualExpression():
         except KeyError:
             raise Exception("Variable not defiend: '%s'" % self.var_name)
 
+    def get_where(self, table):
+        """
+            >>> from sqlalchemy import Table, Column, Integer, MetaData
+            >>> t = Table('my_table', MetaData(), Column('id', Integer))
+            >>> expr = EqualExpression('id', '7')
+            >>> str(expr.get_where(t))
+            "my_table.id = '7'"
+        """
+        from sqlalchemy import text
+        return table.columns[self.var_name] == text("'%s'" % self.var_value)
+
 class AndExpression():
     def __init__(self, condition1, condition2):
         self.condition1 = condition1
@@ -165,6 +176,20 @@ class InExpression():
             if values[self.var_name] == item:
                 return True
         return False
+
+    def get_where(self, table):
+        """
+            >>> from sqlalchemy import Table, Column, Integer, MetaData
+            >>> t = Table('my_table', MetaData(), Column('id', Integer))
+            >>> expr = InExpression('id', ['7', '8', '9'])
+            >>> stm = expr.get_where(t)
+            >>> print(stm)
+            my_table.id IN (:id_1, :id_2, :id_3)
+
+            >>> print(stm.compile().params)
+            {u'id_2': '8', u'id_3': '9', u'id_1': '7'}
+        """
+        return table.columns[self.var_name].in_(self.var_values)
 
 class TrueExpression():
     def eval_values(self, values):
