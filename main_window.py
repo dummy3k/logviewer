@@ -121,7 +121,7 @@ class ProjectTreeItemData(TreeItemData):
         self.list_view.SetItemCount(item_index + 1)
         self.list_view.Refresh()
         if self.app_frame.auto_scroll:
-            self.list_view.FitAndMoveLast()
+            self.list_view.MoveLast()
         log_repeat.debug("IncomingMessage,size of row buffer: %s" % len(self.rows))
 
 
@@ -179,13 +179,18 @@ class LogLinesListCtrlPanel(wx.ListCtrl, listmix.ListCtrlAutoWidthMixin):
         self.at_bottom = None
 
     def SetColumns(self, col_names):
-        #~ log.debug("LogLinesListCtrlPanel.SetColumns")
+        log.debug("LogLinesListCtrlPanel.SetColumns")
         self.DeleteAllItems()
         self.DeleteAllColumns()
         for index, name in enumerate(col_names):
             self.InsertColumn(index, name)
 
+    def MoveLast(self):
+        log.debug("LogLinesListCtrlPanel.FitAndMoveLast")
+        self.EnsureVisible(self.GetItemCount() - 1)
+
     def FitAndMoveLast(self):
+        log.debug("LogLinesListCtrlPanel.FitAndMoveLast")
         self.EnsureVisible(self.GetItemCount() - 1)
         for index in range(self.GetColumnCount()):
             self.SetColumnWidth(index, wx.LIST_AUTOSIZE)
