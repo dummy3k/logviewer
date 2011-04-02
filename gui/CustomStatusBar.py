@@ -15,6 +15,6 @@ class CustomStatusBar(wx.StatusBar):
         self.SetStatusText(str(value), idx)
         if auto_size:
             w, h = self.GetTextExtent(str(value))
-            self.labels[label] = w
+            self.labels[label] = w + 10
             self.SetStatusWidths(self.labels.values())
 

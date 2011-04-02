@@ -43,6 +43,7 @@ class ProjectTreeItemData(TreeItemData):
         self.app_frame = app_frame
         self.filter_expression = TrueExpression()
         self.where_clause = None
+        self.__row_cnt__ = None
 
     def OnSelChanged(self, event):
         log.debug("ProjectTreeItemData.OnSelChanged()")
@@ -50,6 +51,8 @@ class ProjectTreeItemData(TreeItemData):
         row_count = self.project.get_row_count(self.where_clause)
         log.debug("row_count: %s" % row_count)
         self.app_frame.sb.SetStatus('row_cnt', "Rows: %s" % row_count, True)
+        self.__row_cnt__ = int(row_count)
+        self.rows = {}
 
         self.list_view.SetColumns(self.project.parameters)
         self.list_view.SetItemCount(row_count)
@@ -107,6 +110,10 @@ class ProjectTreeItemData(TreeItemData):
 
     def IncomingMessage(self, msg):
         item_index = self.list_view.GetItemCount()
+        self.__row_cnt__ += 1
+        self.app_frame.sb.SetStatus('row_cnt', "Rows: %s" % self.__row_cnt__, True)
+        log.debug("self.__row_cnt__: %s" % self.__row_cnt__)
+
         if len(self.rows) + 1 > ProjectTreeItemData.ROW_BUFFER_SIZE:
             self.__shrink_buffer__(False, item_index + ProjectTreeItemData.CNT_READ_AHEAD)
         log_repeat.debug("appending %s to list at %s" % (str(msg), item_index))
@@ -115,7 +122,7 @@ class ProjectTreeItemData(TreeItemData):
         self.list_view.Refresh()
         if self.app_frame.auto_scroll:
             self.list_view.FitAndMoveLast()
-        log_repeat.debug("size of row buffer: %s" % len(self.rows))
+        log_repeat.debug("IncomingMessage,size of row buffer: %s" % len(self.rows))
 
 
 class FilterTreeItemData(ProjectTreeItemData):
@@ -196,9 +203,9 @@ class LogLinesListCtrlPanel(wx.ListCtrl, listmix.ListCtrlAutoWidthMixin):
 
 
     def OnPaint(self, event):
-        log.debug("OnPaint()")
+        #~ log.debug("OnPaint()")
         bottom = self.GetTopItem() + self.GetCountPerPage()
-        log.debug("bottom: %s, ItemCount: %s" % (bottom, self.GetItemCount()))
+        #~ log.debug("bottom: %s, ItemCount: %s" % (bottom, self.GetItemCount()))
         new_value = (bottom == self.GetItemCount())
 
         if self.at_bottom != new_value:
@@ -394,9 +401,9 @@ class MyFrame(wx.Frame):
         event.Skip()
 
     def OnUpdate(self, event):
-        log_repeat.debug("got line: %s" % event.line)
+        #~ log_repeat.debug("got line: %s" % event.line)
         node_data = self.tree.GetPyData(self.tree.GetSelection())
-        log_repeat.debug("type of node_data: %s" % type(node_data))
+        #~ log_repeat.debug("type of node_data: %s" % type(node_data))
 
         for project in self.projects.values():
             match = project.line_filter.match(event.line.strip())
