@@ -1,6 +1,7 @@
 import logging
 import wx
 import wx.lib.mixins.listctrl  as  listmix
+import wx.lib.newevent
 
 log = logging.getLogger(__name__)
 
