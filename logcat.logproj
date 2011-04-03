@@ -1,6 +1,7 @@
 <readFile filename='/tmp/logcat.log'
           sqliteUrl='sqlite:///var/logcat.db'
           uuid='913f9f54-b15d-4179-bca7-2e09a4421d3f'
+          pos_file='var/logcat.pos'
           >
 
     <lineFilter regex="(\w)/([-\w\./]+) *\( *(\d+)\): (.*)" groupBy='1'>

@@ -113,7 +113,7 @@ class ProjectTreeItemData(TreeItemData):
         item_index = self.list_view.GetItemCount()
         self.__row_cnt__ += 1
         self.app_frame.sb.SetStatus('row_cnt', "Rows: %s" % self.__row_cnt__, True)
-        log.debug("self.__row_cnt__: %s" % self.__row_cnt__)
+        log_repeat.debug("self.__row_cnt__: %s" % self.__row_cnt__)
 
         if len(self.rows) + 1 > ProjectTreeItemData.ROW_BUFFER_SIZE:
             self.__shrink_buffer__(False, item_index + ProjectTreeItemData.CNT_READ_AHEAD)
@@ -304,12 +304,10 @@ class MyFrame(wx.Frame):
             log.info("wait for thread %s" % str(item.uuid))
             item.reader.join()
 
-            log.debug("project: %s" % item.uuid)
-            xml_project = root.newChild(None, 'project', None)
-            xml_project.setProp('uuid', str(item.uuid))
-
-            #~ item.reader.terminate()
-            xml_project.setProp('pos', str(item.reader.pos))
+            #~ log.debug("project: %s" % item.uuid)
+            #~ xml_project = root.newChild(None, 'project', None)
+            #~ xml_project.setProp('uuid', str(item.uuid))
+            #~ xml_project.setProp('pos', str(item.reader.pos))
 
         self.list_view.SaveColumnWidthDict()
         for key, value in self.list_view.GetColumnWidthDict().iteritems():

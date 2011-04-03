@@ -6,6 +6,7 @@ import thread, time
 import threading
 import logging
 import os, sys
+import pickle
 import wx
 import wx.lib.newevent
 from copy import copy
@@ -15,23 +16,22 @@ log = logging.getLogger(__name__)
 (LineReadEvent, EVT_LINE_READ) = wx.lib.newevent.NewEvent()
 
 class FileReader(threading.Thread):
-    def __init__(self, filename, window, start_pos):
+    def __init__(self, filename, pos_filename, window):
         threading.Thread.__init__(self)
         self.filename = filename
         self.__keepGoing__ = self.running = True
         self.window = window
-        self.pos = start_pos
         self.lock = threading.Lock()
+        self.pos_filename = pos_filename
 
-    #~ def Start(self):
-        #~ self.thread_id = thread.start_new_thread(self.Run, ())
-        #~ log.debug("thread %x started" % self.thread_id)
-#~
-    #~ def Stop(self):
-        #~ self.keepGoing = False
-#~
-    #~ def IsRunning(self):
-        #~ return self.running
+        if not os.path.exists(pos_filename):
+            log.debug("%s does not exists" % pos_filename)
+            self.pos = -1
+        else:
+            with open(pos_filename, 'rb') as f:
+                self.pos = pickle.load(f)
+                f.close()
+            log.info("resuming '%s' at %s" % (self.filename, self.pos))
 
     def stop(self):
         self.lock.acquire()
@@ -44,10 +44,9 @@ class FileReader(threading.Thread):
             f = open(self.filename, 'r')
             file_stats = os.fstat(f.fileno())
             if self.pos < 0:
-                log.debug("read from the beginning")
+                #~ log.debug("read from the beginning")
                 f.seek(file_stats.st_size)
             elif self.pos <= file_stats.st_size:
-                log.debug("resuming '%s' at %s" % (self.filename, self.pos))
                 f.seek(self.pos)
 
             line = f.readline()
@@ -76,6 +75,11 @@ class FileReader(threading.Thread):
             keepGoing = self.__keepGoing__
             self.pos = f.tell()
             self.lock.release()
+
+            with open(self.pos_filename, 'wb') as f:
+                pickle.dump(self.pos, f)
+                f.close()
+
             f.close()
 
         self.running = False
@@ -88,9 +92,9 @@ if __name__ == '__main__':
     else:
         start_pos = -1
 
-    t = FileReader('/tmp/logcat.log', None, start_pos)
+    t = FileReader('/tmp/logcat.log', 'var/logcat.pos-test', None)
+    log.debug("t.pos: %s" % t.pos)
     t.start()
-    #~ t.Run()
     try:
         while True:
             log.debug("waiting")

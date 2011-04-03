@@ -31,6 +31,7 @@ class ReadFileProject():
             ctxt = doc.xpathNewContext()
             readFileNode = ctxt.xpathEval("/readFile")[0]
             filename = readFileNode.prop('filename')
+            pos_file = readFileNode.prop('pos_file')
             self.sqlite_url = readFileNode.prop('sqliteUrl')
             self.uuid = uuid.UUID(readFileNode.prop('uuid'))
 
@@ -46,9 +47,9 @@ class ReadFileProject():
 
             self.filters = map(lambda x: FilterNode(x), ctxt.xpathEval("/readFile/filter"))
 
-            pos_node = tmp_xml_root.xpathEval("/window/project[@uuid='%s']" % str(self.uuid))[0]
-            start_pos = int(pos_node.prop('pos'))
-            log.debug("start_pos: %s" % start_pos)
+            #~ pos_node = tmp_xml_root.xpathEval("/window/project[@uuid='%s']" % str(self.uuid))[0]
+            #~ start_pos = int(pos_node.prop('pos'))
+            #~ log.debug("start_pos: %s" % start_pos)
 
         else:
             raise TypeError('bad arguments')
@@ -60,7 +61,7 @@ class ReadFileProject():
             self.root = self.tree.AppendItem(self.tree.GetRootItem(),
                                              os.path.basename(filename))
             #~ self.tree.SetPyData(self.root, self)
-            self.reader = FileReader(filename, self.tree, start_pos)
+            self.reader = FileReader(filename, pos_file, self.tree)
             self.reader.start()
 
     def get_name():
