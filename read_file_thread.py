@@ -39,47 +39,45 @@ class FileReader(threading.Thread):
         self.lock.release()
 
     def run(self):
-        f = open(self.filename, 'r')
-        file_stats = os.fstat(f.fileno())
-        if self.pos < 0:
-            log.debug("read from the beginning")
-            f.seek(file_stats.st_size)
-        elif self.pos <= file_stats.st_size:
-            log.debug("resuming '%s' at %s" % (self.filename, self.pos))
-            f.seek(self.pos)
-
         keepGoing = True
         while keepGoing:
-            line_queue = []
+            f = open(self.filename, 'r')
+            file_stats = os.fstat(f.fileno())
+            if self.pos < 0:
+                log.debug("read from the beginning")
+                f.seek(file_stats.st_size)
+            elif self.pos <= file_stats.st_size:
+                log.debug("resuming '%s' at %s" % (self.filename, self.pos))
+                f.seek(self.pos)
+
             line = f.readline()
             while line != "":
+                if f.closed:
+                    log.warn("file is closed")
+
+                file_stats = os.fstat(f.fileno())
+                if f.tell() > file_stats.st_size:
+                    log.warn("file trimmed")
+
+
                 if self.window:
                     evt = LineReadEvent(line=line)
                     wx.PostEvent(self.window, evt)
 
                 log.debug(line)
-                #~ line_queue.append(copy(line))
-                #~ if len(line_queue) > self.max_lines:
-                    #~ line_queue.pop(0)
                 line = f.readline()
 
-            #~ log.debug("foo?")
-            #~ for line in line_queue:
-                #~ log.debug(line)
-                #~ if self.window:
-                    #~ evt = LineReadEvent(line=line)
-                    #~ wx.PostEvent(self.window, evt)
 
-
-            log.debug("Wait, read: %s" % len(line_queue))
+            file_stats = os.fstat(f.fileno())
+            log.debug("Wait, tell: %s, size: %s" % (f.tell(), file_stats.st_size))
             time.sleep(1)
 
             self.lock.acquire()
             keepGoing = self.__keepGoing__
             self.pos = f.tell()
             self.lock.release()
+            f.close()
 
-        f.close()
         self.running = False
 
 if __name__ == '__main__':
