@@ -49,7 +49,7 @@ class LogLinesListCtrlPanel(wx.ListCtrl, listmix.ListCtrlAutoWidthMixin):
         #~ log.debug("OnPaint()")
         bottom = self.GetTopItem() + self.GetCountPerPage()
         #~ log.debug("bottom: %s, ItemCount: %s" % (bottom, self.GetItemCount()))
-        new_value = (bottom == self.GetItemCount())
+        new_value = (bottom >= self.GetItemCount())
 
         if self.at_bottom != new_value:
             log.debug("at_bottom, changed: %s" % new_value)

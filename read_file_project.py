@@ -74,8 +74,9 @@ class ReadFileProject():
             Column('id', Integer, primary_key=True)
         )
         for item in self.parameters:
-            col = Column(item, String)
-            self.log_entries_table.append_column(col)
+            if item != "rowid":
+                col = Column(item, String)
+                self.log_entries_table.append_column(col)
 
         metadata.create_all(engine)
 

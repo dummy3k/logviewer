@@ -114,7 +114,7 @@ class ProjectTreeItemData(TreeItemData):
                 ProjectTreeItemData.CNT_READ_AHEAD, self.where_clause)):
 
                 #~ log.debug("new_row: %s" % new_row)
-                self.rows[offset + index] = new_row[1:]
+                self.rows[offset + index] = new_row
 
             log.debug("size of row buffer: %s" % len(self.rows))
 
