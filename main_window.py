@@ -34,7 +34,7 @@ class ProjectTreeItemData(TreeItemData):
     CNT_READ_AHEAD = 100
     ROW_BUFFER_SIZE = 3 * CNT_READ_AHEAD
 
-    def __init__(self, project, list_view, app_frame):
+    def __init__(self, project, list_view, app_frame, tree_node):
         TreeItemData.__init__(self, list_view)
         self.project = project
         self.rows = {}
@@ -44,9 +44,14 @@ class ProjectTreeItemData(TreeItemData):
         self.filter_expression = TrueExpression()
         self.where_clause = None
         self.__row_cnt__ = None
+        self.tree = app_frame.tree
+        self.unread_count = 0
+        self.name = project.name
+        self.tree_node = tree_node
 
     def OnSelChanged(self, event):
         log.debug("ProjectTreeItemData.OnSelChanged()")
+        self.MarkAsRead()
 
         row_count = self.project.get_row_count(self.where_clause)
         log.debug("row_count: %s" % row_count)
@@ -126,9 +131,22 @@ class ProjectTreeItemData(TreeItemData):
         log_repeat.debug("IncomingMessage,size of row buffer: %s" % len(self.rows))
 
 
+    def MarkAsUnRead(self):
+        log.debug("MarkAsUnRead(%s)" % self.name)
+        self.unread_count += 1
+        self.tree.SetItemText(self.tree_node,
+            "%s (%s)" % (self.name, self.unread_count))
+        self.tree.SetItemBold(self.tree_node, True)
+
+    def MarkAsRead(self):
+        self.unread_count = 0
+        self.tree.SetItemText(self.tree_node, self.name)
+        self.tree.SetItemBold(self.tree_node, False)
+
 class FilterTreeItemData(ProjectTreeItemData):
-    def __init__(self, project, filter, list_view, app_frame):
-        ProjectTreeItemData.__init__(self, project, list_view, app_frame)
+    def __init__(self, project, filter, list_view, app_frame, tree_node):
+        ProjectTreeItemData.__init__(self, project, list_view, app_frame, tree_node)
+        self.name = filter.name
         self.filter = filter
         self.filter_expression = filter.filter_expression
         self.where_clause = self.filter_expression.get_where(project.log_entries_table)
@@ -252,8 +270,10 @@ class MyFrame(wx.Frame):
         self.projects = {}
         root = self.tree.AddRoot("LogViewer")
 
+        self.tree_data = []
         self.LoadProject('logcat.logproj', ctxt)
         self.LoadProject('moblock.logproj', ctxt)
+        log.debug("self.tree_data: %s" % len(self.tree_data))
 
     def OnSize(self, event):
         w,h = self.GetClientSizeTuple()
@@ -331,17 +351,16 @@ class MyFrame(wx.Frame):
         if self.tree.GetChildrenCount(self.tree.GetRootItem()) == 1:
             self.tree.Expand(self.tree.GetRootItem())
 
-        self.tree.SetPyData(project.root, ProjectTreeItemData(project, self.list_view, self))
+        node_data = ProjectTreeItemData(project, self.list_view, self, project.root)
+        self.tree.SetPyData(project.root, node_data)
+        self.tree_data.append(node_data)
 
         for item in project.filters:
-            node_data = FilterTreeItemData(project, item, self.list_view, self)
-            log.debug("node_data: %s" % node_data)
             node = self.tree.AppendItem(project.root, item.name)
-            #~ log.debug("node: %s" % node)
-            self.tree.SetPyData(node, node_data)
-            #~ self.tree.SetPyData(node, "foo")
-            node_data = self.tree.GetPyData(node)
+            node_data = FilterTreeItemData(project, item, self.list_view, self, node)
             log.debug("node_data: %s" % node_data)
+            self.tree.SetPyData(node, node_data)
+            self.tree_data.append(node_data)
 
         self.tree.Expand(project.root)
 
@@ -391,6 +410,7 @@ class MyFrame(wx.Frame):
 
     def OnUpdate(self, event):
         log_repeat.debug("got line: %s" % event.line)
+        node = self.tree.GetSelection()
         node_data = self.tree.GetPyData(self.tree.GetSelection())
         #~ log_repeat.debug("type of node_data: %s" % type(node_data))
 
@@ -401,10 +421,20 @@ class MyFrame(wx.Frame):
                 db_rowid = project.append(param_values)
                 #~ log_repeat.debug("db_rowid: %s" % db_rowid)
 
-                if node_data and node_data.project_id == project.get_id():
-                    values_with_rowid = [db_rowid]
-                    values_with_rowid.extend(param_values)
+                values_with_rowid = [db_rowid]
+                values_with_rowid.extend(param_values)
 
+                for item_data in self.tree_data:
+                    log.debug("project name: %s" % item_data.name)
+                    if item_data.project.get_id() == project.get_id() and\
+                        item_data.tree_node != node:
+
+                        if item_data.filter_expression.eval_values(project.to_dict(values_with_rowid)):
+                            log.debug("Hell yeah: %s" % item_data.name)
+                            item_data.MarkAsUnRead()
+
+
+                if node_data and node_data.project_id == project.get_id():
                     if node_data and node_data.filter_expression and\
                        node_data.filter_expression.eval_values(project.to_dict(values_with_rowid)):
 

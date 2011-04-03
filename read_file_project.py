@@ -55,11 +55,11 @@ class ReadFileProject():
             raise TypeError('bad arguments')
 
         self.create_database()
-
+        self.name = os.path.basename(filename)
         if self.tree:
             log.debug("launching thread")
             self.root = self.tree.AppendItem(self.tree.GetRootItem(),
-                                             os.path.basename(filename))
+                                             self.name)
             #~ self.tree.SetPyData(self.root, self)
             self.reader = FileReader(filename, pos_file, self.tree)
             self.reader.start()
