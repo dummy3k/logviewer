@@ -154,16 +154,6 @@ class FilterTreeItemData(ProjectTreeItemData):
         self.filter_expression = filter.filter_expression
         self.where_clause = self.filter_expression.get_where(project.log_entries_table)
 
-
-class LoggerInfoItemData(TreeItemData):
-    def __init__(self, logger_info, list_view):
-        TreeItemData.__init__(self, list_view)
-        self.logger_info = logger_info
-
-    #~ def OnSelChanged(self, event):
-        #~ log.debug("LoggerInfoItemData.OnSelChanged()")
-
-
 class LoggerInfo():
     def __init__(self, name, tree_node, tree_control, parameters):
         self.name = name
@@ -441,46 +431,6 @@ class MyFrame(wx.Frame):
                         node_data.IncomingMessage(values_with_rowid)
 
                         log_repeat.debug("add line: %s" % str(values_with_rowid))
-
-                        #try:
-                            ##~ pos = self.list_view.Append(param_values)
-                            ##~ self.list_view.EnsureVisible(pos)
-                            #log.debug("add line (dict): %s" % str(project.to_dict(values_with_rowid)))
-                            #pass
-                        #except UnicodeDecodeError:
-                            #log.error("UnicodeDecodeError in TreeOnSelChanged()")
-
-
-                #~ for filter_item in project.filters:
-                    #~ if filter_item.filter_expression.eval_values(project.to_dict(param_values)):
-                        #~ log.debug("[%s] filtered line: %s" % (filter_item.name, event.line))
-                        #~ pass
-
-                ##~ log.debug(match.groups())
-                #logger_name = param_values[project.group_by]
-                #if not logger_name in project.logger_infos:
-                    ##~ log.debug("New logger_name: %s" % logger_name)
-                    #child = self.tree.AppendItem(project.root, logger_name)
-                    #loginfo = LoggerInfo(logger_name, child, self.tree, project.parameters)
-                    ##~ self.tree.SetPyData(child, loginfo)
-                    #self.tree.SetPyData(child, LoggerInfoItemData(loginfo, self.list_view))
-                    #project.logger_infos[logger_name] = loginfo
-                    #if self.tree.GetChildrenCount(project.root) == 1:
-                        #self.tree.Expand(project.root)
-
-                #loginfo = project.logger_infos[logger_name]
-                #loginfo.messages.append(param_values)
-
-                ##~ focused_loginfo = self.tree.GetPyData(self.tree.GetSelection())
-                ##~ if focused_loginfo and focused_loginfo.name == logger_name:
-                    ##~ log.debug("Focused!")
-                    ##~ try:
-                        ##~ pos = self.list_view.Append(param_values)
-                        ##~ self.list_view.EnsureVisible(pos)
-                    ##~ except UnicodeDecodeError:
-                        ##~ log.error("UnicodeDecodeError in TreeOnSelChanged()")
-                ##~ else:
-                    ##~ loginfo.MarkAsUnRead()
 
                 return
 
