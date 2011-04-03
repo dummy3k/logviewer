@@ -13,7 +13,7 @@ from sqlalchemy import create_engine
 from sqlalchemy import Table, Column, Integer, String, MetaData, ForeignKey
 from sqlalchemy import select, func
 
-from read_file_thread import EVT_LINE_READ, create_process
+from read_file_thread import EVT_LINE_READ, FileReader
 from filter import get_filter_class
 
 log = logging.getLogger(__name__)
@@ -60,7 +60,7 @@ class ReadFileProject():
             self.root = self.tree.AppendItem(self.tree.GetRootItem(),
                                              os.path.basename(filename))
             #~ self.tree.SetPyData(self.root, self)
-            self.reader, self.reader_pos = create_process(filename, self.tree, start_pos)
+            self.reader = FileReader(filename, self.tree, start_pos)
             self.reader.start()
 
     def get_name():

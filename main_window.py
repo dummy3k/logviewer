@@ -10,7 +10,7 @@ if __name__ == '__main__':
 
 
 from read_file_project import ReadFileProject
-from read_file_thread import create_process, EVT_LINE_READ
+from read_file_thread import EVT_LINE_READ
 from filter import get_filter_class, ParsingFailedError, TrueExpression
 from gui import *
 
@@ -297,12 +297,19 @@ class MyFrame(wx.Frame):
         root.setProp('height', str(height))
 
         for item in self.projects.values():
+            log.info("stopping thread %s" % str(item.uuid))
+            item.reader.stop()
+
+        for item in self.projects.values():
+            log.info("wait for thread %s" % str(item.uuid))
+            item.reader.join()
+
             log.debug("project: %s" % item.uuid)
             xml_project = root.newChild(None, 'project', None)
             xml_project.setProp('uuid', str(item.uuid))
 
-            item.reader.terminate()
-            xml_project.setProp('pos', str(item.reader_pos.value))
+            #~ item.reader.terminate()
+            xml_project.setProp('pos', str(item.reader.pos))
 
         self.list_view.SaveColumnWidthDict()
         for key, value in self.list_view.GetColumnWidthDict().iteritems():
