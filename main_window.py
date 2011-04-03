@@ -9,8 +9,8 @@ if __name__ == '__main__':
     logging.config.fileConfig("logging.conf")
 
 
-from read_file_thread import FileReader, EVT_LINE_READ
 from read_file_project import ReadFileProject
+from read_file_thread import create_process, EVT_LINE_READ
 from filter import get_filter_class, ParsingFailedError, TrueExpression
 from gui import *
 
@@ -180,6 +180,7 @@ class MyFrame(wx.Frame):
         wx.Frame.__init__(self, parent, ID, title, pos, size, style)
 
         col_width_dict = {}
+        ctxt = None
         if os.path.exists(MyFrame.WINDOW_XML_FILENAME):
             doc = libxml2.parseFile(MyFrame.WINDOW_XML_FILENAME)
             root = doc.firstElementChild()
@@ -201,8 +202,8 @@ class MyFrame(wx.Frame):
         self.splitter = wx.SplitterWindow(self)
 
         menuBar = wx.MenuBar()
-
         menuItem = wx.Menu()
+
         menuItem.Append(wx.ID_ANY, "&New")
         self.Bind(wx.EVT_MENU, self.MenuNewProject)
         menuBar.Append(menuItem, "&Project")
@@ -210,6 +211,11 @@ class MyFrame(wx.Frame):
         menuItem = wx.Menu()
         menuItem.Append(wx.ID_ANY, "&Mark all as read")
         self.Bind(wx.EVT_MENU, self.MenuMarkAllAsRead)
+
+        menuItem = wx.Menu()
+        menuItem.Append(wx.ID_ANY, "&Yield")
+        self.Bind(wx.EVT_MENU, wx.YieldIfNeeded)
+
         menuBar.Append(menuItem, "&Messages")
 
         self.SetMenuBar(menuBar)
@@ -246,8 +252,8 @@ class MyFrame(wx.Frame):
         self.projects = {}
         root = self.tree.AddRoot("LogViewer")
 
-        self.LoadProject('logcat.logproj')
-        self.LoadProject('moblock.logproj')
+        self.LoadProject('logcat.logproj', ctxt)
+        self.LoadProject('moblock.logproj', ctxt)
 
     def OnSize(self, event):
         w,h = self.GetClientSizeTuple()
@@ -274,6 +280,9 @@ class MyFrame(wx.Frame):
             for loginfo in project.logger_infos.values():
                 loginfo.MarkAsRead()
 
+    def YieldIfNeeded(self, event):
+        wx.YieldIfNeeded()
+
     def OnFormClose(self, event):
         log.debug("OnFormClose(CanVeto: %s)" % event.CanVeto())
         doc = libxml2.newDoc('1.0')
@@ -286,9 +295,15 @@ class MyFrame(wx.Frame):
         width, height = self.GetSize()
         root.setProp('width', str(width))
         root.setProp('height', str(height))
-        #~ self.list_view.SaveLayout(root)
 
-        #~ ProjectTreeItemData.ColumnWidthDicts = self.list_view.GetColumnWidthDict()
+        for item in self.projects.values():
+            log.debug("project: %s" % item.uuid)
+            xml_project = root.newChild(None, 'project', None)
+            xml_project.setProp('uuid', str(item.uuid))
+
+            item.reader.terminate()
+            xml_project.setProp('pos', str(item.reader_pos.value))
+
         self.list_view.SaveColumnWidthDict()
         for key, value in self.list_view.GetColumnWidthDict().iteritems():
             log.debug("key: %s" % key)
@@ -304,8 +319,8 @@ class MyFrame(wx.Frame):
     def MenuNewProject(self, event):
         pass
 
-    def LoadProject(self, filename):
-        project = ReadFileProject(self.tree, xml_filename=filename)
+    def LoadProject(self, filename, ctxt):
+        project = ReadFileProject(self.tree, ctxt, xml_filename=filename)
         self.projects[project.get_id()] = project
 
         if self.tree.GetChildrenCount(self.tree.GetRootItem()) == 1:
@@ -370,7 +385,7 @@ class MyFrame(wx.Frame):
         event.Skip()
 
     def OnUpdate(self, event):
-        #~ log_repeat.debug("got line: %s" % event.line)
+        log_repeat.debug("got line: %s" % event.line)
         node_data = self.tree.GetPyData(self.tree.GetSelection())
         #~ log_repeat.debug("type of node_data: %s" % type(node_data))
 
@@ -434,7 +449,8 @@ class MyFrame(wx.Frame):
 
                 return
 
-        log.error("failed match '%s'" % event.line)
+        log_repeat.warn("failed match '%s'" % event.line)
+
     def SetAutoScroll(self, value):
         if value:
             self.sb.SetStatus('scroll_lock', 'Auto Scroll')
