@@ -214,6 +214,21 @@ class TrueExpression():
     def eval_values(self, values):
         return True
 
+class NorExpression():
+    def __init__(self, expressions):
+        self.expressions = expressions
+
+    def eval_values(self, values):
+        for item in self.expressions:
+            if item.eval_values(values):
+                return False
+        return True
+
+    def get_where(self, table):
+        from sqlalchemy import or_, not_
+        clauses = [x.get_where(table) for x in self.expressions]
+        return not_(or_(*clauses))
+
 IDX_CHILDREN = 3
 from simpleparse.dispatchprocessor import DispatchProcessor, getString, dispatchList
 class ProcessessExpression(DispatchProcessor):

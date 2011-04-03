@@ -11,27 +11,11 @@ if __name__ == '__main__':
 
 from read_file_project import ReadFileProject
 from read_file_thread import EVT_LINE_READ
-from filter import get_filter_class, ParsingFailedError, TrueExpression
+from filter import get_filter_class, ParsingFailedError, TrueExpression, NorExpression
 from gui import *
 
 log = logging.getLogger(__name__)
 log_repeat = logging.getLogger(__name__ + '.repeat')
-
-class NorExpression():
-    def __init__(self, expressions):
-        self.expressions = expressions
-
-    def eval_values(self, values):
-        for item in self.expressions:
-            if item.eval_values(values):
-                return False
-        return True
-
-    def get_where(self, table):
-        log.debug("FOLLOW ME")
-        from sqlalchemy import or_, not_
-        clauses = [x.get_where(table) for x in self.expressions]
-        return not_(or_(*clauses))
 
 class TreeItemData():
     def __init__(self, list_view):
