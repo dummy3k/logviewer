@@ -5,7 +5,7 @@ if __name__ == '__main__':
 import thread, time
 import threading
 import logging
-import os
+import os, sys
 import wx
 import wx.lib.newevent
 from copy import copy
@@ -85,8 +85,23 @@ class FileReader(threading.Thread):
 if __name__ == '__main__':
     log.debug("Start")
     #~ t = FileReader('/tmp/logcat.log', max_lines = 3)
-    t = FileReader('var/moblock-input.log', max_lines = 3)
+    if len(sys.argv) > 1:
+        start_pos = int(sys.argv[1])
+    else:
+        start_pos = -1
+
+    t = FileReader('/tmp/logcat.log', None, start_pos)
     t.start()
     #~ t.Run()
-    time.sleep(5)
-    log.debug("Exit")
+    try:
+        while True:
+            log.debug("waiting")
+            time.sleep(5)
+    except KeyboardInterrupt:
+        pass
+
+    log.debug("stopping thread...")
+    t.stop()
+    t.join()
+
+    log.debug("Exit: %s" % t.pos)
