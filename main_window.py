@@ -120,7 +120,7 @@ class ProjectTreeItemData(TreeItemData):
         log_repeat.debug("appending %s to list at %s" % (str(msg), item_index))
         self.rows[item_index] = msg
         self.list_view.SetItemCount(item_index + 1)
-        self.list_view.Refresh()
+        #~ self.list_view.Refresh()
         if self.app_frame.auto_scroll:
             self.list_view.MoveLast()
         log_repeat.debug("IncomingMessage,size of row buffer: %s" % len(self.rows))
