@@ -1,6 +1,7 @@
 import logging
 import re, os
 import libxml2
+import uuid
 
 if __name__ == '__main__':
     import logging.config
@@ -12,9 +13,7 @@ from sqlalchemy import create_engine
 from sqlalchemy import Table, Column, Integer, String, MetaData, ForeignKey
 from sqlalchemy import select, func
 
-
-from read_file_thread import FileReader, EVT_LINE_READ
-#~ from filter import ProcessessExpression, parse as parse_filter
+from read_file_thread import EVT_LINE_READ, create_process
 from filter import get_filter_class
 
 log = logging.getLogger(__name__)
@@ -23,6 +22,7 @@ class ReadFileProject():
     def __init__(self, *args, **kwargs):
         self.logger_infos = {}
         self.tree = args[0]
+        tmp_xml_root = args[1]
 
         if 'log_file_name' in kwargs:
             pass
@@ -32,6 +32,7 @@ class ReadFileProject():
             readFileNode = ctxt.xpathEval("/readFile")[0]
             filename = readFileNode.prop('filename')
             self.sqlite_url = readFileNode.prop('sqliteUrl')
+            self.uuid = uuid.UUID(readFileNode.prop('uuid'))
 
             pnodes = ctxt.xpathEval("/readFile/lineFilter/parameter")
             self.parameters = map(lambda x: x.prop('name'), pnodes)
@@ -45,17 +46,25 @@ class ReadFileProject():
 
             self.filters = map(lambda x: FilterNode(x), ctxt.xpathEval("/readFile/filter"))
 
+            pos_node = tmp_xml_root.xpathEval("/window/project[@uuid='%s']" % str(self.uuid))[0]
+            start_pos = int(pos_node.prop('pos'))
+            log.debug("start_pos: %s" % start_pos)
+
         else:
             raise TypeError('bad arguments')
 
         self.create_database()
 
         if self.tree:
+            log.debug("launching thread")
             self.root = self.tree.AppendItem(self.tree.GetRootItem(),
                                              os.path.basename(filename))
             #~ self.tree.SetPyData(self.root, self)
-            self.reader = FileReader(filename, self.tree)
-            self.reader.Start()
+            self.reader, self.reader_pos = create_process(filename, self.tree, start_pos)
+            self.reader.start()
+
+    def get_name():
+        pass
 
     def create_database(self):
         engine = create_engine(self.sqlite_url)
@@ -70,7 +79,7 @@ class ReadFileProject():
         metadata.create_all(engine)
 
     def get_id(self):
-        return self.reader.thread_id
+        return self.reader.ident
 
     def save_to_file(self, filename):
         pass
