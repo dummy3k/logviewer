@@ -17,6 +17,16 @@ from gui import *
 log = logging.getLogger(__name__)
 log_repeat = logging.getLogger(__name__ + '.repeat')
 
+class NorExpression():
+    def __init__(self, expressions):
+        self.expressions = expressions
+
+    def eval_values(self, values):
+        for item in self.expressions:
+            if item.eval_values(values):
+                return False
+        return True
+
 class TreeItemData():
     def __init__(self, list_view):
         self.list_view = list_view
@@ -41,13 +51,15 @@ class ProjectTreeItemData(TreeItemData):
         self.last_row_id = None
         self.project_id = project.get_id()
         self.app_frame = app_frame
-        self.filter_expression = TrueExpression()
         self.where_clause = None
         self.__row_cnt__ = None
         self.tree = app_frame.tree
         self.unread_count = 0
         self.name = project.name
         self.tree_node = tree_node
+        #~ self.filter_expression = TrueExpression()
+        expressions = [x.filter_expression for x in project.filters]
+        self.filter_expression = NorExpression(expressions)
 
     def OnSelChanged(self, event):
         log.debug("ProjectTreeItemData.OnSelChanged()")
@@ -221,19 +233,17 @@ class MyFrame(wx.Frame):
 
         menuBar = wx.MenuBar()
         menuItem = wx.Menu()
-
-        menuItem.Append(wx.ID_ANY, "&New")
-        self.Bind(wx.EVT_MENU, self.MenuNewProject)
+        menuChild = menuItem.Append(wx.ID_ANY, "&New")
+        self.Bind(wx.EVT_MENU, self.MenuNewProject, id=menuChild.GetId())
         menuBar.Append(menuItem, "&Project")
 
         menuItem = wx.Menu()
-        menuItem.Append(wx.ID_ANY, "&Mark all as read")
-        self.Bind(wx.EVT_MENU, self.MenuMarkAllAsRead)
 
-        menuItem = wx.Menu()
-        menuItem.Append(wx.ID_ANY, "&Yield")
-        self.Bind(wx.EVT_MENU, wx.YieldIfNeeded)
+        menuChild = menuItem.Append(wx.ID_ANY, "&Mark all as read")
+        self.Bind(wx.EVT_MENU, self.MenuMarkAllAsRead, id=menuChild.GetId())
 
+        menuChild = menuItem.Append(wx.ID_ANY, "&Yield")
+        self.Bind(wx.EVT_MENU, wx.YieldIfNeeded, id=menuChild.GetId())
         menuBar.Append(menuItem, "&Messages")
 
         self.SetMenuBar(menuBar)
@@ -296,9 +306,8 @@ class MyFrame(wx.Frame):
 
 
     def MenuMarkAllAsRead(self, event):
-        for project in self.projects.values():
-            for loginfo in project.logger_infos.values():
-                loginfo.MarkAsRead()
+        for item in self.tree_data:
+            item.MarkAsRead()
 
     def YieldIfNeeded(self, event):
         wx.YieldIfNeeded()
@@ -496,6 +505,8 @@ class MyFrame(wx.Frame):
     def OnListViewAtBottom(self, event):
         log.debug("OnListViewAtBottom(%s)" % event.value)
         self.SetAutoScroll(event.value)
+
+
 
 def main():
     app = wx.App()
