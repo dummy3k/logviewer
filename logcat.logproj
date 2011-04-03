@@ -17,6 +17,12 @@
     <filter name='wifi'>
         logger_name in ('WifiMonitor', 'WifiStateTracker', 'wpa_supplicant')
     </filter>
+    <filter name='libgps'>
+        logger_name = 'libgps'
+    </filter>
+    <filter name='warnings'>
+        level = 'W'
+    </filter>
 
     <logLevels>
         <logLevel id='V' />

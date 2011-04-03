@@ -130,9 +130,8 @@ class EqualExpression():
             {u'id_1': '7'}
 
         """
-        from sqlalchemy import text
-        #~ return table.columns[self.var_name] == text("'%s'" % self.var_value)
         return table.columns[self.var_name] == self.var_value
+
     def to_string(self):
         """
             >>> EqualExpression('id', '7').to_string()

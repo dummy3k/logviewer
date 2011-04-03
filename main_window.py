@@ -27,6 +27,12 @@ class NorExpression():
                 return False
         return True
 
+    def get_where(self, table):
+        log.debug("FOLLOW ME")
+        from sqlalchemy import or_, not_
+        clauses = [x.get_where(table) for x in self.expressions]
+        return not_(or_(*clauses))
+
 class TreeItemData():
     def __init__(self, list_view):
         self.list_view = list_view
@@ -60,6 +66,7 @@ class ProjectTreeItemData(TreeItemData):
         #~ self.filter_expression = TrueExpression()
         expressions = [x.filter_expression for x in project.filters]
         self.filter_expression = NorExpression(expressions)
+        self.where_clause = self.filter_expression.get_where(project.log_entries_table)
 
     def OnSelChanged(self, event):
         log.debug("ProjectTreeItemData.OnSelChanged()")
@@ -144,7 +151,7 @@ class ProjectTreeItemData(TreeItemData):
 
 
     def MarkAsUnRead(self):
-        log.debug("MarkAsUnRead(%s)" % self.name)
+        #~ log.debug("MarkAsUnRead(%s)" % self.name)
         self.unread_count += 1
         self.tree.SetItemText(self.tree_node,
             "%s (%s)" % (self.name, self.unread_count))
@@ -434,12 +441,12 @@ class MyFrame(wx.Frame):
                 values_with_rowid.extend(param_values)
 
                 for item_data in self.tree_data:
-                    log.debug("project name: %s" % item_data.name)
+                    log_repeat.debug("project name: %s" % item_data.name)
                     if item_data.project.get_id() == project.get_id() and\
                         item_data.tree_node != node:
 
                         if item_data.filter_expression.eval_values(project.to_dict(values_with_rowid)):
-                            log.debug("Hell yeah: %s" % item_data.name)
+                            log_repeat.debug("Hell yeah: %s" % item_data.name)
                             item_data.MarkAsUnRead()
 
 

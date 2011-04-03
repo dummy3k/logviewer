@@ -58,6 +58,7 @@ class LogLinesListCtrlPanel(wx.ListCtrl, listmix.ListCtrlAutoWidthMixin):
             wx.PostEvent(self, evt)
 
         #~ log.debug("at_bottom: %s" % self.at_bottom)
+        event.Skip()
 
 
     def SaveColumnWidthDict(self):
