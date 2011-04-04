@@ -34,7 +34,9 @@ class ProjectTreeItemData(TreeItemData):
     CNT_READ_AHEAD = 100
     ROW_BUFFER_SIZE = 3 * CNT_READ_AHEAD
 
-    def __init__(self, project, list_view, app_frame, tree_node):
+    def __init__(self, project, list_view, app_frame, tree_node,
+                 name, filter_expression=None):
+
         TreeItemData.__init__(self, list_view)
         self.project = project
         self.rows = {}
@@ -42,17 +44,20 @@ class ProjectTreeItemData(TreeItemData):
         self.project_id = project.get_id()
         self.app_frame = app_frame
         self.where_clause = None
-        self.__row_cnt__ = None
+        self.__row_cnt__ = 0
         self.tree = app_frame.tree
         self.unread_count = 0
-        self.name = project.name
+        self.name = name
         self.tree_node = tree_node
         #~ self.filter_expression = TrueExpression()
-        expressions = [x.filter_expression for x in project.filters]
-        self.filter_expression = NorExpression(expressions)
+        if not filter_expression:
+            expressions = [x.filter_expression for x in project.filters]
+            self.filter_expression = NorExpression(expressions)
+        else:
+            self.filter_expression = filter_expression
         self.where_clause = self.filter_expression.get_where(project.log_entries_table)
 
-    def OnSelChanged(self, event):
+    def OnSelChanged(self):
         log.debug("ProjectTreeItemData.OnSelChanged()")
         self.MarkAsRead()
 
@@ -143,16 +148,18 @@ class ProjectTreeItemData(TreeItemData):
 
     def MarkAsRead(self):
         self.unread_count = 0
-        self.tree.SetItemText(self.tree_node, self.name)
-        self.tree.SetItemBold(self.tree_node, False)
+        if self.tree_node:
+            self.tree.SetItemText(self.tree_node, self.name)
+            self.tree.SetItemBold(self.tree_node, False)
+    #~ def WithNewExpression(self, filter_expression):
 
 class FilterTreeItemData(ProjectTreeItemData):
     def __init__(self, project, filter, list_view, app_frame, tree_node):
-        ProjectTreeItemData.__init__(self, project, list_view, app_frame, tree_node)
-        self.name = filter.name
+        ProjectTreeItemData.__init__(self, project, list_view, app_frame, tree_node, filter.name, filter.filter_expression)
+        #~ self.name = filter.name
         self.filter = filter
-        self.filter_expression = filter.filter_expression
-        self.where_clause = self.filter_expression.get_where(project.log_entries_table)
+        #~ self.filter_expression = filter.filter_expression
+        #~ self.where_clause = self.filter_expression.get_where(project.log_entries_table)
 
 class LoggerInfo():
     def __init__(self, name, tree_node, tree_control, parameters):
@@ -190,6 +197,7 @@ class MyFrame(wx.Frame):
 
         wx.Frame.__init__(self, parent, ID, title, pos, size, style)
 
+        self.__current_filter__ = None
         col_width_dict = {}
         ctxt = None
         if os.path.exists(MyFrame.WINDOW_XML_FILENAME):
@@ -236,6 +244,7 @@ class MyFrame(wx.Frame):
         panel = wx.Panel(self.splitter)
 
         self.filter_textbox = wx.TextCtrl(panel, wx.ID_ANY, "Test it out and see")
+        self.filter_textbox_skip_next_event = False
         self.Bind(wx.EVT_TEXT, self.OnFilterBoxText)
 
         self.list_view = LogLinesListCtrlPanel(panel, col_width_dict)
@@ -253,9 +262,7 @@ class MyFrame(wx.Frame):
 
         self.sb = CustomStatusBar(self)
         self.SetStatusBar(self.sb)
-        self.sb.SetStatus('message', 'Hi')
         self.SetAutoScroll(True)
-
 
         self.tree.Bind(EVT_LINE_READ, self.OnUpdate)
         self.projects = {}
@@ -273,14 +280,34 @@ class MyFrame(wx.Frame):
     def OnFilterBoxText(self, event):
         text = event.GetString().strip()
         log.debug("text: %s" % text)
+
+        if self.filter_textbox_skip_next_event:
+            log.debug("skipping event")
+            self.filter_textbox_skip_next_event = False
+            return
+
+        #~ node_data = self.tree.GetPyData(self.tree.GetSelection())
+        active_filter = self.GetActiveFilter()
+        if not active_filter:
+            log.warn("no active_filter")
+            return
+
         try:
             expr = get_filter_class(text)
             log.debug("expr: %s" % expr)
 
-            node_data = self.tree.GetPyData(self.tree.GetSelection())
-            if node_data:
-                log.debug("setting expr: %s" % expr)
-                node_data.filter_expression = expr
+            selected_item = self.tree.GetSelection()
+            if self.tree.IsSelected(selected_item):
+                self.tree.ToggleItemSelection(selected_item)
+
+            self.SetActiveFilter(ProjectTreeItemData(active_filter.project,
+                self.list_view, self, None, None, expr))
+
+
+            #~ node_data = self.tree.GetPyData(self.tree.GetSelection())
+            #~ if node_data:
+                #~ log.debug("setting expr: %s" % expr)
+                #~ node_data.filter_expression = expr
 
         except ParsingFailedError:
             log.debug("ParsingFailedError")
@@ -341,7 +368,7 @@ class MyFrame(wx.Frame):
         if self.tree.GetChildrenCount(self.tree.GetRootItem()) == 1:
             self.tree.Expand(self.tree.GetRootItem())
 
-        node_data = ProjectTreeItemData(project, self.list_view, self, project.root)
+        node_data = ProjectTreeItemData(project, self.list_view, self, project.root, project.name)
         self.tree.SetPyData(project.root, node_data)
         self.tree_data.append(node_data)
 
@@ -365,44 +392,29 @@ class MyFrame(wx.Frame):
             return
 
         log.debug("TreeOnSelChanged(%s)" % item_data)
-        item_data.OnSelChanged(event)
+        self.SetActiveFilter(item_data)
 
-    def TreeOnSelChanged_old(self, event):
-        log.debug("TreeOnLeftDClick()")
-        item_id = event.GetItem()
-        if item_id:
-            loginfo = self.tree.GetPyData(item_id)
-            if loginfo:
-                log.debug("OnSelChanged: %s\n" % loginfo)
+    def GetActiveFilter(self):
+        return self.__current_filter__
 
-                self.list_view.DeleteAllItems()
+    def SetActiveFilter(self, value):
+        log.debug("SetActiveFilter(%s)" % value)
+        if self.__current_filter__ == value:
+            return
 
-                self.list_view.DeleteAllColumns()
-                log.debug("loginfo.parameters: %s" % loginfo.parameters)
-                for index, name in enumerate(loginfo.parameters):
-                    self.list_view.InsertColumn(index, name)
-
-                last_item_idx = 0
-                for row in loginfo.messages[-MyFrame.MAX_LIST_ITEMS:]:
-                    try:
-                        log.debug(row)
-                        last_item_idx = self.list_view.Append(row)
-                        pass
-                    except UnicodeDecodeError:
-                        log.error("UnicodeDecodeError in TreeOnSelChanged()")
-
-                loginfo.MarkAsRead()
-                for index in range(len(loginfo.parameters)):
-                    self.list_view.SetColumnWidth(index, wx.LIST_AUTOSIZE)
-                self.list_view.EnsureVisible(last_item_idx)
-
-        event.Skip()
+        self.__current_filter__ = value
+        self.filter_textbox_skip_next_event = True
+        self.filter_textbox.SetValue(value.filter_expression.to_string())
+        value.OnSelChanged()
+        self.sb.SetStatus('project', "Project: %s" % value.project.name, True)
+        self.sb.SetStatus('filter_name', "Filter: %s" % value.name, True)
 
     def OnUpdate(self, event):
         log_repeat.debug("got line: %s" % event.line)
-        node = self.tree.GetSelection()
-        node_data = self.tree.GetPyData(self.tree.GetSelection())
+        #~ node = self.tree.GetSelection()
+        #~ node_data = self.tree.GetPyData(self.tree.GetSelection())
         #~ log_repeat.debug("type of node_data: %s" % type(node_data))
+        node_data = self.GetActiveFilter()
 
         for project in self.projects.values():
             match = project.line_filter.match(event.line.strip())
@@ -417,7 +429,7 @@ class MyFrame(wx.Frame):
                 for item_data in self.tree_data:
                     log_repeat.debug("project name: %s" % item_data.name)
                     if item_data.project.get_id() == project.get_id() and\
-                        item_data.tree_node != node:
+                        item_data != node_data:
 
                         if item_data.filter_expression.eval_values(project.to_dict(values_with_rowid)):
                             log_repeat.debug("Hell yeah: %s" % item_data.name)
